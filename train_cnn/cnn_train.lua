@@ -1,0 +1,174 @@
+-- Trains and tests a cnn for partially occulded human detection
+-- Requires the path to the data set and the name of the file to save the trained model as
+
+-- Needed to unpack binary strings
+-- From:
+-- http://www.inf.puc-rio.br/~roberto/struct/
+require "struct"
+--[[
+Copyright notice for struct
+/******************************************************************************
+* Copyright (C) 2010-2012 Lua.org, PUC-Rio.  All rights reserved.
+*
+* Permission is hereby granted, free of charge, to any person obtaining
+* a copy of this software and associated documentation files (the
+* "Software"), to deal in the Software without restriction, including
+* without limitation the rights to use, copy, modify, merge, publish,
+* distribute, sublicense, and/or sell copies of the Software, and to
+* permit persons to whom the Software is furnished to do so, subject to
+* the following conditions:
+*
+* The above copyright notice and this permission notice shall be
+* included in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+******************************************************************************/
+--]]
+
+-- For cuda based CNN
+require 'cunn'
+
+-- Loads a binary file of floats into a Tensor, returns the tensor
+-- Full file path, name, and extension must be specified
+-- Default size is 640*480
+-- Default file type is "d", check struct documentation for more details
+function bin_to_tensor(file_name, sent_size, sent_data)
+
+	-- Default to size 307200 if size is not specified
+	local size = sent_size
+	if not sent_size then
+
+		size = 307200
+
+	end
+
+	-- Default file type is "d" if data_type is not specified
+	local data_type = sent_data
+	if not sent_data then
+
+		data_type = "d"
+
+	end
+
+	-- Load the file
+	input = assert(io.open(file_name, "rb"))
+
+	-- Get all of the info from the file in a string
+	data = input:read("*all")
+
+	-- Put all of the data into a Tensor
+	local temp_tensor = torch.Tensor(size)
+	local tensor_index = 1
+	local data_index = 1
+	while data_index < size * struct.size(data_type) do
+
+		temp_tensor[tensor_index], data_index = struct.unpack(data_type, data, data_index)
+
+		tensor_index = tensor_index + 1
+
+	end
+
+	-- Send the tensor back
+	return temp_tensor
+
+end
+
+-- Check for correct number of arguments
+if #arg < 2 then
+	-- Not enough arguments, show usage
+	print ("Usage: cnn_train input_dir output_name")
+	print ("\nOptional arguments:")
+	print ("\n-b batch_size : Sets the batch size")
+	print ("Default: batch_size is 100")
+	print ("\n-l load_file_name : Loads a model from the given file to continue training on")
+	print ("Default: create a new model")
+	print ("Will overwrite the load file if output_name has the same name")
+
+	-- Quit program
+	os.exit()
+end
+
+-- Get the source folder of the data
+input_dir = arg[1]
+
+-- Show file being loaded
+print ("\nData directory: ")
+print (input_dir)
+
+-- Get the location to save the cnn to
+output_name = arg[2]
+
+-- Show output name
+print ("\nSaving to: ")
+print (output_name)
+
+-- Default batch size is 100
+batch_size = 100
+
+-- Default load option is to create a new model
+load_model_name = nil
+
+if #arg > 2 then
+
+	-- Get all remaining optional arguments
+	local index = 3
+	while index < #arg do
+
+		-- Get the flag
+		local flag = arg[index]
+
+		-- Switch based on the option
+
+		-- Batch size
+		if (flag == "-b") then
+
+			-- Get batch_size
+			batch_size = tonumber(arg[index+1])
+
+			-- Set the index to the next flag
+			index = index + 2
+
+		-- Load name
+		elseif (flag == "-l") then
+
+			-- Get the load_model_name
+			load_model_name = arg[index+1]
+
+			-- Set the index to the next flag
+			index = index + 2
+
+		-- Flag not known
+		else
+
+			-- Show error message
+			print("Flag: "..flag.." is not known")
+
+			-- Set the index to the next flag
+			index = index + 1
+
+		end
+
+	end
+end
+
+-- Show batch_size
+print ("\nBatch size: ")
+print (batch_size)
+
+-- Load the existing model, if applicable
+if load_model_name then
+
+	print ("\nLoad model: ")
+	print (load_model_name)
+
+else
+
+	print ("\nCreating new model")
+
+end
