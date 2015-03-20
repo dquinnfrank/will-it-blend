@@ -1,1 +1,5 @@
+# Path will change depending on the system
 path.txt
+
+# If blender is placed in the data generation directory, it would cause all of blender to be commited
+blender-2.72*
