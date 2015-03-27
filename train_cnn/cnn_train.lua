@@ -31,8 +31,14 @@ Copyright notice for struct
 ******************************************************************************/
 --]]
 
--- For cuda based CNN
+-- For the nerual net
+require 'nn'
+require 'optim'
 require 'cunn'
+
+-- For the loading
+require 'image'
+require 'paths'
 
 -- Loads a binary file of floats into a Tensor, returns the tensor
 -- Full file path, name, and extension must be specified
@@ -78,6 +84,70 @@ function bin_to_tensor(file_name, sent_size, sent_data)
 	return temp_tensor
 
 end
+
+-- Gets the files with the lowest and highest index
+-- Needs the path to the directory
+-- returns low, high
+function get_extreme_files(directory)
+
+	local low = 0
+	local high = 0
+	local first = true
+
+	local popen = io.popen
+	for filename in popen('ls -a "'..directory..'"'):lines() do
+
+		local index = tonumber(paths.basename(filename, ".jpg"))
+
+		if index then
+
+			if first then
+				high = index
+				low = index
+				first = false
+
+			else
+				if index > high then
+					high = index
+
+				elseif index < low then
+					low = index
+
+				end
+
+			end
+		end
+	end
+
+	return low, high
+
+end
+
+-- Generates a random order 
+function get_random_order(min_index, max_index)
+
+	math.randomseed( os.time() )
+
+	local rnd,trem,getn,ins = math.random,table.remove,table.getn,table.insert;
+
+	-- Make a table of all values in the range
+	local all_range = {}
+	for i = min_index, max_index do
+		ins(all_range, i)
+	end
+
+	local rand_order = {};
+	while getn(all_range) > 0 do
+		ins(rand_order, trem(all_range, rnd(getn(all_range))));
+	end
+
+	return rand_order
+end
+
+-- Gets a batch of training data
+-- Requires a list of file names to open
+-- Returns a Tensor of size [numImages] x height x width x channels
+--function get_batch(list_to_open)
 
 -- Check for correct number of arguments
 if #arg < 2 then
@@ -172,3 +242,12 @@ else
 	print ("\nCreating new model")
 
 end
+
+-- Get the lowest, highest indexed file in the input dir
+min_index, max_index = get_extreme_files(input_dir.."/RGB/")
+
+-- Get a random ordering of the file indices in the given range
+rand_order = get_random_order(min_index, max_index)
+
+-- Process data and train the model
+
