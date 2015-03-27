@@ -4,6 +4,7 @@ will-it-blend
 Fast Detection of Partially Occluded Humans from Mobile Platforms
 
 University of Nevada, Reno
+
 David Frank, Dr. David Feil-Seifer, Dr. Richard Kelley
 
 This repository contains files necessary to train a system to detect partially occluded humans. Additional software is required as stated below.
