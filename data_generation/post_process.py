@@ -51,8 +51,10 @@ def convert_to_jpg(exrfile, jpg_name):
 		return (v * scale) + darkest
 	rgb8 = [im.point(normalize_0_255).convert("L") for im in rgbf]
 
+	print len(rgb8)
+
 	# Save the RGB image as a jpg
-	Image.merge("RGB", rgb8).save(jpg_name)
+	#Image.merge("RGB", rgb8).save(jpg_name)
 
 # Saves the depth channel as a binary array of floats
 # Does not save dimension information, this must be known by whatever program loads the data

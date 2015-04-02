@@ -237,14 +237,53 @@ if load_model_name then
 	print ("\nLoad model: ")
 	print (load_model_name)
 
+	-- Load the model from a file
+	model_auto = torch.load(load_model_name)
+
 else
 
 	print ("\nCreating new model")
 
+	-- stage 1 : mean suppresion -> filter bank -> squashing -> max pooling
+	model:add(nn.SpatialSubtractiveNormalization(1, image.gaussian1D(15)))
+	model:add(nn.SpatialConvolution(1, 16, 5, 5))
+	model:add(nn.Tanh())
+	model:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- stage 2 : mean suppresion -> filter bank -> squashing -> max pooling
+	model:add(nn.SpatialSubtractiveNormalization(16, image.gaussian1D(15)))
+	model:add(nn.SpatialConvolutionMap(nn.tables.random(16, 128, 4), 5, 5))
+	model:add(nn.Tanh())
+	model:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- stage 3 : standard 2-layer neural network
+	model:add(nn.Reshape(128*5*5))
+	model:add(nn.Linear(128*5*5, 3 * 480 * 640))
+	--model:add(nn.Tanh())
+	--model:add(nn.Linear(200,#classes))
+--[[
+	ninput = 480 * 640
+	nhidden = 300
+	noutput = 3 * 480 * 640
+
+	reshaper = nn.Reshape(ninput)
+
+	model = nn.Sequential()
+	model:add(nn.Reshape(ninput))
+	model:add(nn.Linear(ninput,nhidden))
+	model:add(nn.ReLU())
+	model:add(nn.Linear(nhidden, noutput))
+	model:add(nn.LogSoftMax())
+]]--
+	model:cuda()
+
+	-- we put the mlp in a new container:
+	model_auto = nn.Sequential()
+	model_auto:add(nn.Copy('torch.DoubleTensor', 'torch.CudaTensor'))
+	model_auto:add(model)
+	model_auto:add(nn.Copy('torch.CudaTensor', 'torch.FloatTensor'))
 end
 
 -- Get the lowest, highest indexed file in the input dir
-min_index, max_index = get_extreme_files(input_dir.."/RGB/")
+min_index, max_index = get_extreme_files(paths.concat(input_dir, "RGB"))
 
 -- Get a random ordering of the file indices in the given range
 rand_order = get_random_order(min_index, max_index)
