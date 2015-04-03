@@ -35,7 +35,7 @@ A file named path.txt must be in the folder data_generation. This file must cont
 setup.py can do this by running it with the argument -p, such as python setup.py -p [path_to_blender_executable] .
 Any custom modules imported by generate_image.py must be placed into [blender_version]/2.72/scripts/modules . This is due to the fact that blender runs its own python interpreter.
 setup.py can do this when the -c option is used, such as: python setup.py -c . This will copy all files from the folder data_generation/blender_scripts to the modules folder.
-
+The OpenEXR bindings for python must be installed. This can be done manually by navigating to the OpenEXR-1.2.0 folder and running that module's setup.py. The root setup.py for this project can do it by running it with the -e option, such as: python setup.py -e .
 
 
 Other Information:
