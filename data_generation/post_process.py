@@ -100,8 +100,7 @@ def convert_to_rgb(exrfile, rgb_name):
 
 	# Get the image from the exr file
 	rgb_image = get_channels(exrfile, "RGB")
-s
-def save_depth_binary(exrfile, save_name):
+
 	# Normalize the image
 	rgb_image = normalize_image(rgb_image)
 
@@ -193,7 +192,7 @@ def save_image(to_save, save_name):
 # Takes exr images and creates a jpg for the rgb data and a binary file for the depth
 # Within the target folder, creates sub folders for rgb and depth binary images
 # If start_index is specified, process will only process files that are higher than the sent value, assuming that 
-def process(source_dir, target_dir, start_index=None):
+def process(source_dir, target_dir, start_index=None, end_index=None):
 
 	# Names for the subdirs in target dir
 	rgb_dir = os.path.join(target_dir, "RGB")
@@ -206,16 +205,16 @@ def process(source_dir, target_dir, start_index=None):
 	enforce_path(rgb_dir)
 	enforce_path(depth_dir)
 
-	# If start_index is None, process all items
-	if start_index == None:
-		to_process = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
+	# Get the names of every file
+	to_process = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
 
-	# Otherwise, only process the items after, not including, the specified start_index
-	else:
-		all_names = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
+	# Only include items after the start threshold
+	if start_index:
+		to_process = sorted([v for v in to_process if int(v.strip(".exr")) >= start_index ])
 
-		# Remove items before the threshold
-		to_process = sorted([v for v in all_names if int(v.strip(".exr")) > start_index ])
+	# Only include items before the end threshold
+	if end_index:
+		to_process = sorted([v for v in to_process if int(v.strip(".exr")) <= end_index ])
 
 	# Get a list of all files in the source dir and iterate through them
 	for exr_name in to_process:
@@ -240,7 +239,8 @@ if __name__ == "__main__":
 	# Check correct number of arguments
 	if (len(sys.argv) < 2):
 		# Not enough arguments, print usage
-		print "Usage: post_process.py source_dir target_dir [start index]"
+		print ("Usage: post_process.py source_dir target_dir [-s start_index -e end_index]")
+		print("Indices are inclusive")
 		sys.exit(1)
 
 	# Get the command line arguments
@@ -248,9 +248,19 @@ if __name__ == "__main__":
 	target_dir = sys.argv[2]
 
 	start_index = None
+	end_index = None
 	# Get optional argument, if present
-	if(len(sys.argv) > 3):
-		start_index = int(sys.argv[3])
+	if(len(sys.argv) > 4):
+		if sys.argv[3] == "-s":
+			start_index = int(sys.argv[4])
+		elif sys.argv[3] == "-e":
+			end_index = int(sys.argv[4])
+
+	if(len(sys.argv) > 6):
+		if sys.argv[5] == "-s":
+			start_index = int(sys.argv[6])
+		elif sys.argv[5] == "-e":
+			end_index = int(sys.argv[6])
 
 	# Process the images
-	process(source_dir, target_dir, start_index=start_index)
+	process(source_dir, target_dir, start_index=start_index, end_index=end_index)
