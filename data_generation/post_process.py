@@ -23,7 +23,8 @@ import Image
 import sys
 from array import array
 import struct
-import numpy
+import numpy as np
+from PIL import Image as PIL_Image
 
 import sys
 import os
@@ -38,11 +39,82 @@ def enforce_path(path):
             pass
         else: raise
 
-# Converts the exr image to a jpg
-# From: http://excamera.com/articles/26/doc/intro.html#conversions
-# exrfile is a file name to open or an opened exr file
-# jpg_name is the name to save the jpg as. Include file path and extension
-def convert_to_jpg(exrfile, jpg_name):
+# Normalizes each channel to be about 0 - 255
+# Changes type to int
+# to_normalize is the image to be normalized, it must be a numpy array of shape channels * height * width
+# WARNING: image is not ready to save due to the reasons below
+# OpenEXR images generally have 1 as the highest value, but sometimes the value can be higher
+# This function assumes that the lowest value will always be 0.0
+# The highest value is assumed to be at least 1.0, this is because if an image doesn't show the whole person, the high could be incorrectly very low
+def normalize_image(to_normalize):
+
+	# Get the highest and lowest values in the whole image
+	# Assume that we always need to normalize each channel by the same amount
+	highest_val = np.max(np.max((to_normalize), 1.0))
+
+	# Set the scale
+	scale = 255.0 / (highest_val)
+
+	# Normalize the image
+	normalized = to_normalize * scale
+
+	return normalized.astype(np.uint8)
+
+# Assigns the closest class to each pixel
+# Takes an array and returns a numpy array with the same shape and dtype
+def assign_closest(data, possible_classes=[0, 50, 255]):
+
+	# Get all the data as a single array
+	# Use float64 to avoid over/under flow issues
+	flat_data = (data.flatten()).astype(np.float64)
+
+	# Initialize the new array
+	fixed = np.empty(shape=flat_data.shape)
+
+	# Get the differences from each class
+	distances = []
+	for possible in possible_classes:
+
+		distances.append(np.absolute(flat_data - possible))
+
+	# Assign the lowest distance as the class
+	for index in range(flat_data.shape[0]):
+
+		# Get the values of each distance
+		vals = []
+		for i in range(len(possible_classes)):
+			vals.append(distances[i][index])
+
+		# Set the value at the index to be the closest class
+		fixed[index] = possible_classes[vals.index(min(vals))]
+
+	# Send the fixed data back reshaped, with the same dtype
+	return np.array(fixed.reshape(data.shape), dtype=data.dtype)
+
+# Converts an exr image to a png
+# Will assign each pixel to the closest class
+# Wrapper for get_channels, normalize_image, assign_closest, save_image
+# exrfile is an exrfile, opened or name
+# rgb_name is the name to save the image as. Type will be inferred from extension
+def convert_to_rgb(exrfile, rgb_name):
+
+	# Get the image from the exr file
+	rgb_image = get_channels(exrfile, "RGB")
+s
+def save_depth_binary(exrfile, save_name):
+	# Normalize the image
+	rgb_image = normalize_image(rgb_image)
+
+	# Fix any noisy pixels
+	rgb_image = assign_closest(rgb_image)
+
+	# Save the image
+	save_image(rgb_image, rgb_name)
+
+# Gets the specified channel information from an exr file and places it into a numpy array of floats
+# For RGB, channels = "RGB"
+# For Depth, channels = "Z"
+def get_channels(exrfile, channels):
 
 	# Check for file name or open file
 	if(isinstance(exrfile, basestring)):
@@ -56,56 +128,66 @@ def convert_to_jpg(exrfile, jpg_name):
 	dw = exrfile.header()['dataWindow']
 	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
 
-	# Get the pixels
-	rgbf = [Image.fromstring("F", size, exrfile.channel(c, pt)) for c in "RGB"]
+	# Get the pixels, they will be loaded as floats
+	pix_float = [Image.fromstring("F", size, exrfile.channel(c, pt)) for c in channels]
 
-	# Get the extremas of each channel
-	extrema = [im.getextrema() for im in rgbf]
-	darkest = min([lo for (lo,hi) in extrema])
-	lighest = max([hi for (lo,hi) in extrema])
+	# Initialize the numpy array
+	# Images and numpy arrays use different major, thus size must be switched
+	np_pix = np.empty((len(pix_float), size[1], size[0]))
 
-	# Normalize each channel to 0 - 255
-	scale = 255 / (lighest - darkest)
-	def normalize_0_255(v):
-		return (v * scale) + darkest
-	rgb8 = [im.point(normalize_0_255).convert("L") for im in rgbf]
+	# Place the pixel data into the numpy array
+	for index in range(len(pix_float)):
+		np_pix[index] = np.array(pix_float[index])
 
-	# Save the RGB image as a jpg
-	Image.merge("RGB", rgb8).save(jpg_name)
+	# Return the numpy array
+	return np_pix
 
-# Saves the depth channel as a binary array of floats
-# Does not save dimension information, this must be known by whatever program loads the data
-# exrfile is a file name to open or an opened exr file
+# Saves the given data as a binary array
+# Data will be flattened before saving
+# Whatever program loads the data must know the data type and size
+# to_save is a numpy array to be saved
 # bin_name is the name to save the binary file as. Include file path and extension '.bin'
-def save_depth_binary(exrfile, bin_name):
-
-	# Check for file name or open file
-	if(isinstance(exrfile, basestring)):
-		# This is a string
-
-		# Open the file
-		exrfile = OpenEXR.InputFile(exrfile)
-
-	# Set pixel info
-	pt = Imath.PixelType(Imath.PixelType.FLOAT)
-	dw = exrfile.header()['dataWindow']
-	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
-
-	# Get the pixels
-	zf = [Image.fromstring("F", size, exrfile.channel(c, pt)) for c in "Z"]
-
-	# Convert to a numpy array
-	# Roundabout method, but it works
-	z_pix = numpy.array(zf[0])
+# data_type is the python array type to save the data as
+# default is double: 'd'
+def save_binary(to_save, bin_name, data_type='d'):
 
 	# Flatten and convert to a Python array
-	z_copy = array('d', z_pix.flatten())
+	copy = array(data_type, to_save.flatten())
 
 	# Open the target file in binary write mode
 	with open(bin_name, 'wb') as out_file:
 
 		# Save the file
-		z_copy.tofile(out_file)
+		(to_save.flatten()).tofile(out_file)
+
+# Takes the depth channel from the exr image and saves it as a binary file
+# This is a wrapper for get_channel and save_binary
+# exrfile is an opened exr file or a file name
+# save_name is the name to save the output as
+def save_depth_binary(exrfile, save_name):
+
+	# Get the depth channel
+	z_channel = get_channels(exrfile, "Z")
+
+	# Save the depth channel
+	save_binary(z_channel, save_name)
+
+# Takes a numpy array and saves it as an image
+# to_save is the image to be saved, must have shape: channels * width * height
+def save_image(to_save, save_name):
+
+	# Get the channels in the image
+	channels = to_save.shape[0]
+	width = to_save.shape[1]
+	height = to_save.shape[2]
+
+	# Shift the axis to be in the correct order
+	im = np.rollaxis(to_save, 1)
+	im = np.rollaxis(im, 2, 1)
+
+	# Save the image
+	save_im = PIL_Image.fromarray(im)
+	save_im.save(save_name)
 
 # Processes the images from the source directory and places them into the target dir
 # Takes exr images and creates a jpg for the rgb data and a binary file for the depth
@@ -114,8 +196,8 @@ def save_depth_binary(exrfile, bin_name):
 def process(source_dir, target_dir, start_index=None):
 
 	# Names for the subdirs in target dir
-	rgb_dir = target_dir + "/RGB"
-	depth_dir = target_dir + "/Depth"
+	rgb_dir = os.path.join(target_dir, "RGB")
+	depth_dir = os.path.join(target_dir, "Depth")
 
 	# Enforce path to target dir
 	enforce_path(target_dir)
@@ -142,15 +224,13 @@ def process(source_dir, target_dir, start_index=None):
 		name = exr_name.strip(".exr")
 
 		# Open the exr file
-		exrfile = OpenEXR.InputFile(source_dir + "/" + exr_name)
+		exrfile = OpenEXR.InputFile(os.path.join(source_dir, exr_name))
 
 		# Create the rgb copy
-		#convert_to_jpg(source_dir + "/" + exr_name, rgb_dir + "/" + name + ".jpg")
-		convert_to_jpg(exrfile, rgb_dir + "/" + name + ".jpg")
+		convert_to_rgb(exrfile, os.path.join(rgb_dir, name + ".png"))
 
 		# Create the depth binary
-		#save_depth_binary(source_dir + "/" + exr_name, depth_dir + "/" + name + ".bin")
-		save_depth_binary(exrfile, depth_dir + "/" + name + ".bin")
+		save_depth_binary(exrfile, os.path.join(depth_dir, name + ".bin"))
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
