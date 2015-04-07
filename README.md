@@ -29,7 +29,7 @@ Some settings within Blender must be configured by the user. This only needs to 
 * Enable mhx importing by searching for mhx in the search bar and checking the box next to Import-Export: Import: MakeHuman (.mhx)
 * Finally, save the changes by clicking Save User Settings. Exit blender.
 
-The image generation code requires some configuration. This can be done by running setup.py or manually.
+The image generation code requires some configuration. Some of the items can be done by running setup.py or manually.
 To run all setup items run: python setup.py -a [path_to_blender]
 
 The items that need to be taken care of are:
@@ -37,7 +37,7 @@ The items that need to be taken care of are:
 setup.py can do this by running it with the argument -p, such as python setup.py -p [path_to_blender_executable] .
 * Any custom modules imported by generate_image.py must be placed into [blender_version]/2.72/scripts/modules . This is due to the fact that blender runs its own python interpreter.
 setup.py can do this when the -c option is used, such as: python setup.py -c . This will copy all files from the folder data_generation/blender_scripts to the modules folder.
-* The OpenEXR bindings for python must be installed. This can be done manually by navigating to the OpenEXR-1.2.0 folder and running that module's setup.py. The root setup.py for this project can do it by running it with the -e option, such as: python setup.py -e .
+* The OpenEXR bindings for python must be installed. The OpenEXR C++ Library is a prerequisite for the bindings and must be installed on the system before running, on Debian-based Linux this can be done by running sudo apt-get install libopenexr-dev. The bindings and documentation can be found at: http://www.excamera.com/sphinx/articles-openexr.html . Running setup.py with the -e option will show instructions for Debian-based Linux, other system configurations will need to check the documentation.
 
 
 Other Information:
