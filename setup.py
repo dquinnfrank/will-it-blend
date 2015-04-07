@@ -47,13 +47,23 @@ def copy_scripts():
 
 		print ("\nScripts copied")
 
-# Installs the OpenEXR bindings
+# Prints instructions on how to install the OpenEXR bindings
+# The installation has been moved ouside of the install script since it is dependent on the system configuration
 def install_OpenEXR():
 
+	# Show link to OpenEXR bindings
+	print("\nInformation about OpenEXR bindings for python can be found at:")
+	print("http://www.excamera.com/sphinx/articles-openexr.html")
+	print("\nTo install prerequisites on Debian-based Linux run (you will need write permissions):")
+	print("apt-get install libopenexr-dev")
+	print("\nTo install the python bindings run (you will need write permissions):")
+	print("pip install openexr")
+
+	"""
 	# Try to run the OpenEXR script
 	try:
 		print("")
-		subprocess.call("python setup.py install", cwd=join("data_generation", "OpenEXR-1.2.0"), shell=True)
+		status = subprocess.call("python setup.py install", cwd=join("data_generation", "OpenEXR-1.2.0"), shell=True)
 
 	# Something is wrong with the OpenEXR tools
 	except:
@@ -71,7 +81,15 @@ def install_OpenEXR():
 		except:
 			pass
 
-		print("\nOpenEXR setup run. Check output to make sure install was successful.")
+		# Get the status, 0 means successful
+		if status == 0:
+			print("\nOpenEXR setup run. Check output to make sure install was successful.")
+
+		else:
+			print("\nOpenEXR setup did not complete.") 
+			print("You may need to install the OpenEXR C++ library. On Linux run: ")
+			print("sudo apt-get install libopenexr-dev")
+	"""
 
 # No arguments means that usage must be shown
 if len(sys.argv) < 2:
@@ -84,8 +102,9 @@ if len(sys.argv) < 2:
 	print ("\n-p path_to_blender : set the path to blender")
 	print ("path_to_blender must be the full path to the blender executable")
 	print ("\n-c : copy scripts to blender")
-	print ("\n-e : Runs the OpenEXR setup script")
 	print ("This copies any files in blender_scripts to the modules folder in blender")
+	#print ("\n-e : Runs the OpenEXR setup script")
+	print ("\n-e : Shows information to install the OpenEXR bindings for python")
 	print ("")
 
 # Get all of the arguments
