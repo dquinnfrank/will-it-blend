@@ -23,13 +23,20 @@ This project uses Blender version 2.72, which can be downloaded from http://down
 
 Some settings within Blender must be configured by the user. This only needs to be done once.
 From the top bar go to File > User Preferences
+
 Then go to the File tab and check the box: "Auto Run Python Scripts"
+
 Next go to the Addons tab
+
 Enable the Rigify addon by searching for rigify in the search bar and checking the box next to Rigging:Rigify
+
 Enable mhx importing by searching for mhx in the search bar and checking the box next to Import-Export: Import: MakeHuman (.mhx)
+
 Finally, save the changes by clicking Save User Settings. Exit blender.
 
 The image generation code requires some configuration. This can be done by running setup.py or manually.
+To run all setup items run: python setup.py -a [path_to_blender]
+
 The items that need to be taken care of are:
 A file named path.txt must be in the folder data_generation. This file must contain the path to the blender executable. It will look like: [path_to_blender_folder]/[blender_version]/blender
 setup.py can do this by running it with the argument -p, such as python setup.py -p [path_to_blender_executable] .
