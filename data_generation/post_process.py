@@ -30,6 +30,27 @@ import sys
 import os
 import errno
 
+# The dictionary of pixel values to labels
+# "R G B" : label
+pix_to_label = {
+"0 0 0" : 0, # Not person
+"255 0 0" : 1, # Head L
+"50 0 0" : 2, # Head R
+"0 0 255" : 3, # Torso L
+"0 0 50" : 4, # Torso R
+"255 255 0" : 5, # Upper arm L
+"50 50 0" : 6, # Upper arm R
+"0 255 255" : 7, # Lower arm L
+"0 50 50" : 8, # Lower arm R
+"0 255 0" : 9, # Upper leg L
+"0 50 0" : 10, # Upper leg R
+"255 0 255" : 11, # Lower leg L
+"50 0 50" : 12 # Lower leg R
+}
+
+# The inverse of the label dictionary
+label_to_pix = {v: k for k, v in pix_to_label.items()}
+
 # Enforces file path
 def enforce_path(path):
     try:
@@ -59,6 +80,26 @@ def normalize_image(to_normalize):
 	normalized = to_normalize * scale
 
 	return normalized.astype(np.uint8)
+
+# Assigns a label to each pixel based on the RGB values
+def get_labels(rgb_image):
+
+	# Create a new image
+	new_image = np.empty((rgb_image.shape[1], rgb_image.shape[2]), dtype=np.uint8)
+
+	# For each pixel, use the label dictionary to assign a label
+	for h in range(rgb_image.shape[1]):
+		for w in range(rgb_image.shape[2]):
+
+			# Try to assign a label
+			try:
+				new_image[h][w] = pix_to_label[" ".join([str(rgb_image[0][h][w]), str(rgb_image[1][h][w]), str(rgb_image[2][h][w])])]
+
+			# No known label, assign no class
+			except KeyError:
+				new_image[h][w] = 0
+
+	return new_image
 
 # Assigns the closest class to each pixel
 # Takes an array and returns a numpy array with the same shape and dtype
@@ -91,12 +132,11 @@ def assign_closest(data, possible_classes=[0, 50, 255]):
 	# Send the fixed data back reshaped, with the same dtype
 	return np.array(fixed.reshape(data.shape), dtype=data.dtype)
 
-# Converts an exr image to a png
+# Converts an exr image to a numpy array
 # Will assign each pixel to the closest class
-# Wrapper for get_channels, normalize_image, assign_closest, save_image
+# Wrapper for get_channels, normalize_image, assign_closest
 # exrfile is an exrfile, opened or name
-# rgb_name is the name to save the image as. Type will be inferred from extension
-def convert_to_rgb(exrfile, rgb_name):
+def convert_to_rgb(exrfile):
 
 	# Get the image from the exr file
 	rgb_image = get_channels(exrfile, "RGB")
@@ -107,12 +147,26 @@ def convert_to_rgb(exrfile, rgb_name):
 	# Fix any noisy pixels
 	rgb_image = assign_closest(rgb_image)
 
+	# Return the image
+	return rgb_image
+
+# Converts ands saves an exr image to a unit8 image
+# Will assign each pixel to the closest class
+# Wrapper for get_channels, normalize_image, assign_closest, save_image
+# exrfile is an exrfile, opened or name
+# rgb_name is the name to save the image as. Type will be inferred from extension
+def save_to_rgb(exrfile, rgb_name):
+
+	# Get the RGB image
+	rgb_image = convert_to_rgb(exrfile)
+
 	# Save the image
 	save_image(rgb_image, rgb_name)
 
 # Gets the specified channel information from an exr file and places it into a numpy array of floats
 # For RGB, channels = "RGB"
 # For Depth, channels = "Z"
+# shape : (channels, height, width)
 def get_channels(exrfile, channels):
 
 	# Check for file name or open file
@@ -188,22 +242,9 @@ def save_image(to_save, save_name):
 	save_im = PIL_Image.fromarray(im)
 	save_im.save(save_name)
 
-# Processes the images from the source directory and places them into the target dir
-# Takes exr images and creates a jpg for the rgb data and a binary file for the depth
-# Within the target folder, creates sub folders for rgb and depth binary images
-# If start_index is specified, process will only process files that are higher than the sent value, assuming that 
-def process(source_dir, target_dir, start_index=None, end_index=None):
-
-	# Names for the subdirs in target dir
-	rgb_dir = os.path.join(target_dir, "RGB")
-	depth_dir = os.path.join(target_dir, "Depth")
-
-	# Enforce path to target dir
-	enforce_path(target_dir)
-
-	# Enforce path to the subdirs
-	enforce_path(rgb_dir)
-	enforce_path(depth_dir)
+# Gets a list of files based on the start and end indices
+# Randomize will randomize the list NOT IMPLEMENTED YET
+def get_names(source_dir, start_index, end_index, randomize=False):
 
 	# Get the names of every file
 	to_process = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
@@ -216,6 +257,29 @@ def process(source_dir, target_dir, start_index=None, end_index=None):
 	if end_index:
 		to_process = sorted([v for v in to_process if int(v.strip(".exr")) <= end_index ])
 
+	return to_process
+
+# Processes the images from the source directory and places them into the target dir
+# Takes exr images and creates a png for the rgb data and a binary file for the depth
+# Within the target folder, creates sub folders for rgb and depth binary images
+# If start_index is specified, process will only process files that are higher than the sent value
+# If end_index is specified, process will only process files that are lower than the sent value
+def process_to_file(source_dir, target_dir, start_index=None, end_index=None):
+
+	# Names for the subdirs in target dir
+	rgb_dir = os.path.join(target_dir, "RGB")
+	depth_dir = os.path.join(target_dir, "Depth")
+
+	# Enforce path to target dir
+	enforce_path(target_dir)
+
+	# Enforce path to the subdirs
+	enforce_path(rgb_dir)
+	enforce_path(depth_dir)
+
+	# Get the list of names to process
+	to_process = get_names(source_dir, start_index, end_index)
+
 	# Get a list of all files in the source dir and iterate through them
 	for exr_name in to_process:
 
@@ -226,10 +290,72 @@ def process(source_dir, target_dir, start_index=None, end_index=None):
 		exrfile = OpenEXR.InputFile(os.path.join(source_dir, exr_name))
 
 		# Create the rgb copy
-		convert_to_rgb(exrfile, os.path.join(rgb_dir, name + ".png"))
+		save_to_rgb(exrfile, os.path.join(rgb_dir, name + ".png"))
 
 		# Create the depth binary
 		save_depth_binary(exrfile, os.path.join(depth_dir, name + ".bin"))
+
+# Processes the images from the source directory and returns two numpy arrays: RGB_data, Depth_data
+# RGB_data (n_images, 3, height, width) : the rgb components of the images
+# This data will have the functions 
+# Depth_data (n_images, height, width) : the depth information of the images
+# If start_index is specified, process will only process files that are higher than the sent value
+# If end_index is specified, process will only process files that are lower than the sent value
+def process_to_np(source_dir, start_index=None, end_index=None):
+
+	# Get the list of names to process
+	to_process = get_names(source_dir, start_index, end_index)
+
+	# Get the shape of the images
+	header = OpenEXR.InputFile(os.path.join(source_dir, to_process[0])).header()
+	dw = header['dataWindow']
+	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+	# Create the numpy array for the RGB data
+	RGB_data = np.empty((len(to_process), 3, size[1], size[0]), dtype=np.uint8)
+
+	# Create the numpy array for the Depth data
+	Depth_data = np.empty((len(to_process), 1, size[1], size[0]))
+
+	# Get a list of all files in the source dir and iterate through them
+	for index, exr_name in enumerate(to_process):
+
+		# Get the name without the extension
+		name = exr_name.strip(".exr")
+
+		# Open the exr file
+		exrfile = OpenEXR.InputFile(os.path.join(source_dir, exr_name))
+
+		# Get the rgb data from the file
+		RGB_data[index] = convert_to_rgb(exrfile)
+
+		# Get the depth data from the file
+		Depth_data[index] = get_channels(exrfile, "Z")
+
+	# Remove single dimensional rows
+	Depth_data = np.squeeze(Depth_data)
+
+	# Return: RGB_data, Depth_data
+	return Depth_data, RGB_data
+
+# Gets the data ready to process for the nn
+# Returns depth images and labels
+# Depth_image : (n_images, height, width)
+# Labels : (n_images, height, width)
+# If start_index is specified, process will only process files that are higher than the sent value
+# If end_index is specified, process will only process files that are lower than the sent value
+def process_to_ready(source_dir, start_index=None, end_index=None):
+
+	# Get the data as numpy arrays
+	Depth_data, RGB_data = process_to_np(source_dir, start_index, end_index)
+
+	# Set the labels for the data
+	labels = np.empty((RGB_data.shape[0], RGB_data.shape[2], RGB_data.shape[3]), dtype=np.uint8)
+	for index in range(len(labels)):
+		labels[index] = get_labels(RGB_data[index])
+
+	# Return the data
+	return Depth_data, labels
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
@@ -263,4 +389,4 @@ if __name__ == "__main__":
 			end_index = int(sys.argv[6])
 
 	# Process the images
-	process(source_dir, target_dir, start_index=start_index, end_index=end_index)
+	process_to_file(source_dir, target_dir, start_index=start_index, end_index=end_index)
