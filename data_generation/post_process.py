@@ -29,6 +29,7 @@ from PIL import Image as PIL_Image
 import sys
 import os
 import errno
+import cPickle as pickle
 
 # The dictionary of pixel values to labels
 # "R G B" : label
@@ -356,6 +357,64 @@ def process_to_ready(source_dir, start_index=None, end_index=None):
 
 	# Return the data
 	return Depth_data, labels
+
+# Processes images and saves them into pickles
+# Data pickles are  shape (batch_size, height, width)
+# Label pickles are shape (batch_size, height, width)
+# If start_index is specified, process will only process files that are higher or equal than the sent value
+# If end_index is specified, process will only process files that are lower or equal than the sent value
+def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, batch_size=3):
+
+	# If end_index is not sent, set it to the largest file in the set
+	if not end_index:
+		end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
+		end_index = int(end_index.strip(".exr"))
+
+	# Make sure that the end index is aligned to the batch size
+	end_index = (end_index // batch_size) * batch_size
+
+	# Loop control
+	done = False
+	if start_index:
+		index = start_index
+	else:
+		index = 0
+
+	# Enforce path to the target directory
+	enforce_path(target_dir)
+
+	# Get the shape of the images
+	header = OpenEXR.InputFile(os.path.join(source_dir, str(index).zfill(12) + ".exr")).header()
+	dw = header['dataWindow']
+	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+	# Create a numpy array to hold each batch
+	# shape (batch_size, height, width)
+	data_batch = np.empty((batch_size, size[1], size[0]))
+	label_batch = np.empty((batch_size, size[1], size[0]), dtype='uint8')
+
+	# Loop through all data, getting batches
+	while not done and index < end_index:
+
+		# Get the target end index
+		target_index = index + batch_size - 1
+
+		# Get the data and labels for the batch
+		try:
+			data_batch, label_batch = process_to_np(source_dir, index, target_index)
+
+		# Index went past the end index
+		except IndexError:
+			done = True
+
+		# Save the data_batch
+		pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_data.p"), "wb"))
+
+		# Save the label batch
+		pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_label.p"), "wb"))
+
+		# Go to next batch
+		index += batch_size
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
