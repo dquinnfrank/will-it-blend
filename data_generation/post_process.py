@@ -30,6 +30,7 @@ import sys
 import os
 import errno
 import cPickle as pickle
+from random import shuffle
 
 # The dictionary of pixel values to labels
 # "R G B" : label
@@ -244,8 +245,7 @@ def save_image(to_save, save_name):
 	save_im.save(save_name)
 
 # Gets a list of files based on the start and end indices
-# Randomize will randomize the list NOT IMPLEMENTED YET
-def get_names(source_dir, start_index, end_index, randomize=False):
+def get_names(source_dir, start_index=None, end_index=None, randomize=False):
 
 	# Get the names of every file
 	to_process = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
@@ -257,6 +257,10 @@ def get_names(source_dir, start_index, end_index, randomize=False):
 	# Only include items before the end threshold
 	if end_index:
 		to_process = sorted([v for v in to_process if int(v.strip(".exr")) <= end_index ])
+
+	# Randomize names, if selected
+	if randomize:
+		shuffle(to_process)
 
 	return to_process
 
@@ -378,15 +382,26 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 	if start_index:
 		index = start_index
 	else:
-		index = 0
+		index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))
 
 	# Enforce path to the target directory
 	enforce_path(target_dir)
 
 	# Get the shape of the images
-	header = OpenEXR.InputFile(os.path.join(source_dir, str(index).zfill(12) + ".exr")).header()
-	dw = header['dataWindow']
-	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+	# Need to get the header from any uncorrupted image
+	size = None
+	for name in get_names(source_dir):
+		try:
+			header = OpenEXR.InputFile(os.path.join(source_dir, name)).header()
+
+		except:
+			pass
+
+		else:
+			dw = header['dataWindow']
+			size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+			break
 
 	# Create a numpy array to hold each batch
 	# shape (batch_size, height, width)
@@ -407,14 +422,21 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 		except IndexError:
 			done = True
 
-		# Save the data_batch
-		pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_data.p"), "wb"))
+		# There is a problem with one of the files, just ignore it
+		except IOError:
+			pass
 
-		# Save the label batch
-		pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_label.p"), "wb"))
+		# The file load was successful
+		else:
+			# Save the data_batch
+			pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_data.p"), "wb"))
 
-		# Go to next batch
-		index += batch_size
+			# Save the label batch
+			pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_label.p"), "wb"))
+
+		finally:
+			# Go to next batch
+			index += batch_size
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
