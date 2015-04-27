@@ -306,7 +306,7 @@ def process_to_file(source_dir, target_dir, start_index=None, end_index=None):
 # Depth_data (n_images, height, width) : the depth information of the images
 # If start_index is specified, process will only process files that are higher than the sent value
 # If end_index is specified, process will only process files that are lower than the sent value
-def process_to_np(source_dir, start_index=None, end_index=None):
+def process_to_np(source_dir, start_index=None, end_index=None, assign_label=False):
 
 	# Get the list of names to process
 	to_process = get_names(source_dir, start_index, end_index)
@@ -387,6 +387,10 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 	# Enforce path to the target directory
 	enforce_path(target_dir)
 
+	# Enforce path to the sub directories
+	enforce_path(os.path.join(target_dir, "data"))
+	enforce_path(os.path.join(target_dir, "label"))
+
 	# Get the shape of the images
 	# Need to get the header from any uncorrupted image
 	size = None
@@ -428,11 +432,17 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 
 		# The file load was successful
 		else:
+
+			# Fix the rgb data
+			n_label_batch = np.empty((batch_size, size[1], size[0]), dtype=np.uint8)
+			for b_index in range(batch_size):
+				n_label_batch[b_index] = get_labels(label_batch[b_index])
+
 			# Save the data_batch
-			pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_data.p"), "wb"))
+			pickle.dump(data_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"))
 
 			# Save the label batch
-			pickle.dump(data_batch, open(os.path.join(target_dir, str(index) + "_" + str(target_index) + "_label.p"), "wb"))
+			pickle.dump(n_label_batch, open(os.path.join(target_dir, "label", str(index) + "_" + str(target_index) + ".p"), "wb"))
 
 		finally:
 			# Go to next batch
