@@ -53,6 +53,12 @@ pix_to_label = {
 # The inverse of the label dictionary
 label_to_pix = {v: k for k, v in pix_to_label.items()}
 
+# The scale to process all images to
+# TODO: Find a better way to set this
+# The problem is that this is only needed in get_channels, which is at the bottom of most function calls.
+# Thus it requires lots of pass-though arguments if scale is not global
+scale = 1
+
 # Enforces file path
 def enforce_path(path):
     try:
@@ -65,7 +71,6 @@ def enforce_path(path):
 # Normalizes each channel to be about 0 - 255
 # Changes type to int
 # to_normalize is the image to be normalized, it must be a numpy array of shape channels * height * width
-# WARNING: image is not ready to save due to the reasons below
 # OpenEXR images generally have 1 as the highest value, but sometimes the value can be higher
 # This function assumes that the lowest value will always be 0.0
 # The highest value is assumed to be at least 1.0, this is because if an image doesn't show the whole person, the high could be incorrectly very low
@@ -166,9 +171,10 @@ def save_to_rgb(exrfile, rgb_name):
 	save_image(rgb_image, rgb_name)
 
 # Gets the specified channel information from an exr file and places it into a numpy array of floats
+# Scale will change the image size by the sent number
 # For RGB, channels = "RGB"
 # For Depth, channels = "Z"
-# shape : (channels, height, width)
+# shape : (channels, scale * height, scale * width)
 def get_channels(exrfile, channels):
 
 	# Check for file name or open file
@@ -188,11 +194,11 @@ def get_channels(exrfile, channels):
 
 	# Initialize the numpy array
 	# Images and numpy arrays use different major, thus size must be switched
-	np_pix = np.empty((len(pix_float), size[1], size[0]))
+	np_pix = np.empty((len(pix_float), int(scale * size[1]), int(scale * size[0])))
 
 	# Place the pixel data into the numpy array
 	for index in range(len(pix_float)):
-		np_pix[index] = np.array(pix_float[index])
+		np_pix[index] = np.array(pix_float[index].resize((int(scale * size[0]), int(scale * size[1]))))
 
 	# Return the numpy array
 	return np_pix
@@ -317,10 +323,10 @@ def process_to_np(source_dir, start_index=None, end_index=None, assign_label=Fal
 	size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
 
 	# Create the numpy array for the RGB data
-	RGB_data = np.empty((len(to_process), 3, size[1], size[0]), dtype=np.uint8)
+	RGB_data = np.empty((len(to_process), 3, int(scale * size[1]), int(scale * size[0])), dtype=np.uint8)
 
 	# Create the numpy array for the Depth data
-	Depth_data = np.empty((len(to_process), 1, size[1], size[0]))
+	Depth_data = np.empty((len(to_process), 1, int(scale * size[1]), int(scale * size[0])))
 
 	# Get a list of all files in the source dir and iterate through them
 	for index, exr_name in enumerate(to_process):
@@ -409,8 +415,8 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 
 	# Create a numpy array to hold each batch
 	# shape (batch_size, height, width)
-	data_batch = np.empty((batch_size, size[1], size[0]))
-	label_batch = np.empty((batch_size, size[1], size[0]), dtype='uint8')
+	data_batch = np.empty((batch_size, int(scale * size[1]), int(scale * size[0])))
+	label_batch = np.empty((batch_size, int(scale * size[1]), int(scale * size[0])), dtype='uint8')
 
 	# Loop through all data, getting batches
 	while not done and index < end_index:
@@ -434,7 +440,7 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 		else:
 
 			# Fix the rgb data
-			n_label_batch = np.empty((batch_size, size[1], size[0]), dtype=np.uint8)
+			n_label_batch = np.empty((batch_size, int(scale * size[1]), int( scale * size[0])), dtype=np.uint8)
 			for b_index in range(batch_size):
 				n_label_batch[b_index] = get_labels(label_batch[b_index])
 
