@@ -1,0 +1,237 @@
+# Trains a neural network to find human poses
+# This is a simple version that has llimited functionality
+
+import os
+import sys
+import cPickle as pickle
+import numpy as np
+
+# Set the recursion limit high, for pickling the entire network
+sys.setrecursionlimit(10000)
+
+#from guppy import hpy
+
+# Start the memory monitor
+#hp = hpy()
+
+# Need to import the post_processing module from data_generation
+#sys.path.insert(0, os.path.join('..', 'data_generation'))
+#import post_process as pp
+
+# Keras is the framework for theano based neural nets
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation, Flatten
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
+from keras.optimizers import SGD, Adadelta, Adagrad
+
+# Sets up the network
+# Returns the constructed network
+#
+# load_from is the name of the pickle to load the network from
+# Leaving load_from as None will create a new network using the sent configuration
+#
+# These parameters are only needed if setting up a new network
+# conv_inter is the number of feature maps to use in the the convolution layers
+#
+# dense_nodes is the number of nodes to use in the two layer classifier at the end
+# Setting this too high may cause memory errors
+#
+# image_height is the height of the images
+#
+# image_width is the width of the images
+def get_network(load_from=None, conv_inter=6, dense_nodes=512, image_height=48, image_width=64):
+
+	# Check for existing network to load
+	if load_from:
+	# There is a network to load
+
+		# Load the network
+		model = pickle.load(open(load_from,'rb'))
+
+		# Return the network
+		return model
+
+	# Need to construct the model
+	else:
+
+		# The network
+		model = Sequential()
+
+		# Two convolutions followed by max pool
+		# Dropout of .25 at end
+		# Feature maps is set by the variable conv_inter
+		# Input shape: (1, height, width)
+		# Output shape: (conv_inter, height / 2, width / 2)
+		model.add(Convolution2D(conv_inter, 1, 3, 3, border_mode='full')) 
+		model.add(Activation('relu'))
+		model.add(Convolution2D(conv_inter, conv_inter, 3, 3))
+		model.add(Activation('relu'))
+		model.add(MaxPooling2D(poolsize=(2, 2)))
+		model.add(Dropout(0.25))
+
+		# Another two convolutions followed by max pool
+		# Dropout of .25 at end
+		# Input shape: (conv_inter, height / 2, width / 2)
+		# Output shape: (conv_inter * 2, height / 4, width / 4)
+		model.add(Convolution2D(conv_inter*2, conv_inter, 3, 3, border_mode='full')) 
+		model.add(Activation('relu'))
+		model.add(Convolution2D(conv_inter*2, conv_inter*2, 3, 3))
+		model.add(Activation('relu'))
+		model.add(MaxPooling2D(poolsize=(2, 2)))
+		model.add(Dropout(0.25))
+
+		# Flattens 2D data into 1D
+		# Input shape: (2 * conv_inter, height / 4, width / 4)
+		# Output shape: ((2 * conv_inter * height * width)/16)
+		model.add(Flatten((2 * conv_inter * image_height * image_width) / 16))
+
+		# Two layer dense network
+		# Number of dense nodes is set by dense_nodes
+		# Dropout of .5 in the middle
+		# Input shape: ((2 * conv_inter * height * width)/16)
+		# Output shape: (height * width)
+		model.add(Dense((2 * conv_inter * image_height * image_width)/16, dense_nodes, init='normal'))
+		model.add(Activation('relu'))
+		model.add(Dropout(0.5))
+		model.add(Dense(dense_nodes, image_height * image_width, init='normal'))
+
+		# let's train the model using SGD + momentum (how original).
+		sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+		model.compile(loss='mse', optimizer=sgd)
+
+		# Return the model
+		return model
+
+# Loads the data from pickles and returns each item in order
+# Depth data will be normalized
+# Data will be reshaped to conform to keras requirements
+# This is a generator function
+# source_dir is the directory containing the images, it should have sub directories: data, labels
+# data will be of shape (n_images, stack, height, width), Ex: (5000, 1, 48, 64)
+# labels will be of shape (n_images, height * width)
+# data will be float32, for GPU
+# label will be ints
+def get_data(source_dir):
+
+	# Sub directories
+	data_dir = os.path.join(source_dir, "data")
+	label_dir = os.path.join(source_dir, "label")
+
+	# Get the names of all of the data items
+	all_names = [ f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir,f)) ]
+
+	# Iterate through all names
+	for name in all_names:
+
+		# Load the data batch
+		data_item = pickle.load(open(os.path.join(data_dir, name), 'rb'))
+
+		# Load the label batch
+		label_item = pickle.load(open(os.path.join(label_dir, name), 'rb'))
+
+		# Get the shape of the input
+		(n_images, height, width) = data_item.shape
+
+		# Normalize the depth data
+		input_max = np.max(data_item)
+		input_min = np.min(data_item)
+		input_range = input_max - input_min
+		data_item = (data_item - input_min) / input_range
+
+		# Add the stack dimension, needed for correct processing in the convolutional layers
+		data_item = np.expand_dims(data_item, axis=0)
+
+		# Reorder axis to to (n_images, stack, height, width)
+		data_item = np.rollaxis(data_item, 0, 2)
+
+		# Reshape to (n_images, height * width)
+		label_item = label_item.reshape(n_images, height * width)
+
+		# Make into GPU friendly float32
+		data_item = data_item.astype("float32")
+
+		# Generate the next batch
+		yield data_item, label_item
+
+# Trains the network using all of the data in source_dir
+#
+# model is the network to train
+#
+# source_dir is the location of the data to train on
+#
+# If save_to is set, the network will be saved after each data batch is trained on
+#
+# n_epochs sets the number of epochs to train for each batch. This is kept low to prevent over fitting on a single batch
+#
+# n_batch is the number of images to process at once. Set based on the available GPU memory
+def train_network(model, source_dir, save_to=None, n_epochs=2, n_batch=32):
+
+	# Process all of the data in source_dir
+	for train_data, train_label in get_data(source_dir):
+
+		# Train the model
+		model.fit(train_data, train_label, batch_size=n_batch, nb_epoch=n_epochs)
+
+		# Save the model, if save_to is set
+		if save_to:
+			pickle.dump(model, open(save_to ,'wb'))
+
+# Tests the model using all of the data in source_dir
+#
+# model is the model to test
+#
+# source_dir is the location of the data to train on
+#
+# n_batch is the number of images to process at once. Set based on the available GPU memory
+def test_network(model, source_dir, n_batch=32):
+
+	for test_data, test_label in get_data(source_dir):
+
+		score = model.evaluate(test_data, test_label, batch_size=32)
+
+		print('Test score:', score)
+
+# If this is the main, train the network
+# Need the source_dir for the training data and another for the test data
+# Optionally, name to load / save the model
+if __name__ == "__main__":
+
+	# If no arguments are sent, show the usage
+	if (len(sys.argv) < 2):
+		# Not enough arguments, print usage
+		print "Usage: train_pickle.py train_source_dir test_source_dir [-l load_name -s save_name]"
+		print ""
+		print "train_source_dir : the location of the training data"
+		print "test_source_dir : the location of the testing data"
+		print "load_name : the name to load the model from"
+		print "save_name : the name to save the model to"
+		print ""
+		sys.exit(1)
+
+	# Get the source_dir
+	train_source_dir = sys.argv[1]
+	test_source_dir = sys.argv[2]
+
+	# Get optional argument, if present
+	load_name = None
+	save_name = None
+	if(len(sys.argv) > 4):
+		if sys.argv[3] == "-l":
+			load_name = sys.argv[4]
+		elif sys.argv[3] == "-s":
+			save_name = sys.argv[4]
+
+	if(len(sys.argv) > 6):
+		if sys.argv[5] == "-l":
+			load_name = sys.argv[6]
+		elif sys.argv[5] == "-s":
+			save_name = sys.argv[6]
+
+	# Get the network
+	model = get_network(load_from=load_name)
+
+	# Train the network
+	train_network(model, train_source_dir, save_to=save_name)
+
+	# Test the network
+	test_network(model, test_source_dir)

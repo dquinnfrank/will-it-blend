@@ -373,7 +373,7 @@ def process_to_ready(source_dir, start_index=None, end_index=None):
 # Label pickles are shape (batch_size, height, width)
 # If start_index is specified, process will only process files that are higher or equal than the sent value
 # If end_index is specified, process will only process files that are lower or equal than the sent value
-def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, batch_size=3):
+def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, batch_size=3, verbose=False):
 
 	# If end_index is not sent, set it to the largest file in the set
 	if not end_index:
@@ -396,6 +396,13 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 	# Enforce path to the sub directories
 	enforce_path(os.path.join(target_dir, "data"))
 	enforce_path(os.path.join(target_dir, "label"))
+
+	if verbose:
+		print "Items in source directory: ", len(get_names(source_dir))
+
+		print "Start index: ", start_index
+		print "End index: ", end_index
+		print "Batch size: ", batch_size
 
 	# Get the shape of the images
 	# Need to get the header from any uncorrupted image
@@ -426,6 +433,9 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 
 		# Get the data and labels for the batch
 		try:
+			if verbose:
+				print "Getting batch: ", str(index) + "_" + str(target_index)
+
 			data_batch, label_batch = process_to_np(source_dir, index, target_index)
 
 		# Index went past the end index
@@ -434,7 +444,8 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 
 		# There is a problem with one of the files, just ignore it
 		except IOError:
-			pass
+			if verbose:
+				print "File corrupt: ", str(index) + "_" + str(target_index)
 
 		# The file load was successful
 		else:
@@ -443,6 +454,9 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 			n_label_batch = np.empty((batch_size, int(scale * size[1]), int( scale * size[0])), dtype=np.uint8)
 			for b_index in range(batch_size):
 				n_label_batch[b_index] = get_labels(label_batch[b_index])
+
+			if verbose:
+				print "Saving batch: " + str(index) + "_" + str(target_index)
 
 			# Save the data_batch
 			pickle.dump(data_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"))
