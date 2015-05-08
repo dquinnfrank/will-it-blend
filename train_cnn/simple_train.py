@@ -31,6 +31,14 @@ print input_data.shape
 print "Label data shape:"
 print label_data.shape
 
+# Normalize the depth data
+input_max = np.max(input_data)
+input_min = np.min(input_data)
+input_range = input_max - input_min
+input_data = (input_data - input_min) / input_range
+print "New max: ", np.max(input_data)
+print "New min: ", np.min(input_data)
+
 # Add the stack dimension, needed for correct processing in the convolutional layers
 input_data = np.expand_dims(input_data, axis=0)
 #label_data = np.expand_dims(label_data, axis=0)
