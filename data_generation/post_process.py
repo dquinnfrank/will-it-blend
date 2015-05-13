@@ -31,6 +31,7 @@ import os
 import errno
 import cPickle as pickle
 from random import shuffle
+import subprocess
 
 # The dictionary of pixel values to labels
 # "R G B" : label
@@ -108,6 +109,36 @@ def get_labels(rgb_image):
 
 	return new_image
 
+# Assigns a pixel value based on the label
+def get_pix_vals(label_array):
+
+	# Make sure that label array is ints
+	label_array = label_array.astype(np.uint8)
+
+	# Create a new image
+	new_image = np.empty((label_array.shape[0], label_array.shape[1], 3), dtype=np.uint8)
+
+	# For each pixel, use the label to pix dictionary to assign a pixel value
+	for h in range(label_array.shape[0]):
+		for w in range(label_array.shape[1]):
+
+			# Try to assign a label
+			try:
+				pix_vals = (label_to_pix[label_array[h][w]]).split()
+
+				new_image[h][w][0] = pix_vals[0]
+				new_image[h][w][1] = pix_vals[1]
+				new_image[h][w][2] = pix_vals[2]
+
+			# No known label, assign no class
+			except KeyError:
+				print "no label"
+				new_image[h][w][0] = 0
+				new_image[h][w][1] = 0
+				new_image[h][w][2] = 0
+
+	return new_image
+
 # Assigns the closest class to each pixel
 # Takes an array and returns a numpy array with the same shape and dtype
 def assign_closest(data, possible_classes=[0, 50, 255]):
@@ -169,6 +200,72 @@ def save_to_rgb(exrfile, rgb_name):
 
 	# Save the image
 	save_image(rgb_image, rgb_name)
+
+# Checks to see if the given file is valid
+def is_valid(exr_name):
+
+	# Attempt to open the file
+	try:
+		# Open the file
+		exrfile = OpenEXR.InputFile(exr_name)
+
+	# File is not valid
+	except IOError:
+
+		return False
+
+	# File is valid
+	else:
+
+		return True
+
+# Removes all invalid files from the directory
+# Renames files to maintain incrementing by 1 indexes
+# WARNING: This function deletes things, use wisely
+# will require sudo permission if files are write protected
+def remove_invalid(source_dir, start_index=None, end_index=None, verbose=False):
+
+	if verbose:
+
+		print "Checking directory: ", source_dir
+		print "Start index: ", start_index
+		print "End index: ", end_index
+
+	# Get the names of all of the files to check
+	to_process = get_names(source_dir, start_index, end_index)
+
+	if verbose:
+
+		print "Total items to check: ", len(to_process)
+
+	# Check each image, remove if invalid
+	for file_name in to_process:
+
+		# Rejoin the file with the path
+		file_name = os.path.join(source_dir, file_name)
+
+		# Sanity check to make sure that this is an exr file
+		if  os.path.splitext(file_name)[1] != ".exr":
+
+			if verbose:
+
+				print "Ignoring file (not an exr file): ", file_name
+
+			# Go to the next item
+			continue
+
+		# Remove the file if it is not valid
+		if not is_valid(os.path.join(source_dir, file_name)):
+
+			if verbose:
+
+				print "Removing (file not valid): ", file_name
+
+			subprocess.call("rm " + file_name, shell=True)
+
+	if verbose:
+
+		print "Remaining items: ", len(get_names(source_dir, start_index, end_index))
 
 # Gets the specified channel information from an exr file and places it into a numpy array of floats
 # Scale will change the image size by the sent number
@@ -369,8 +466,10 @@ def process_to_ready(source_dir, start_index=None, end_index=None):
 	return Depth_data, labels
 
 # Processes images and saves them into pickles
-# Data pickles are  shape (batch_size, height, width)
-# Label pickles are shape (batch_size, height, width)
+# Data pickles are  shape (n_items, height, width)
+# Label pickles are shape (n_items, height, width)
+# n_items is equal to or less than the batch size.
+# n_items is typically a few items less than the batch size, due to invalid items that have been removed
 # If start_index is specified, process will only process files that are higher or equal than the sent value
 # If end_index is specified, process will only process files that are lower or equal than the sent value
 def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, batch_size=3, verbose=False):
@@ -442,6 +541,9 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 		except IndexError:
 			done = True
 
+		#except Exception, e:
+		#	print e
+
 		# There is a problem with one of the files, just ignore it
 		except IOError:
 			if verbose:
@@ -451,8 +553,10 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 		else:
 
 			# Fix the rgb data
-			n_label_batch = np.empty((batch_size, int(scale * size[1]), int( scale * size[0])), dtype=np.uint8)
-			for b_index in range(batch_size):
+			#n_label_batch = np.empty((batch_size, int(scale * size[1]), int( scale * size[0])), dtype=np.uint8)
+			#for b_index in range(batch_size):
+			n_label_batch = np.empty((data_batch.shape[0], int(scale * size[1]), int( scale * size[0])), dtype=np.uint8)
+			for b_index in range(data_batch.shape[0]):
 				n_label_batch[b_index] = get_labels(label_batch[b_index])
 
 			if verbose:

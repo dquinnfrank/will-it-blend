@@ -39,7 +39,7 @@ from keras.optimizers import SGD, Adadelta, Adagrad
 # image_height is the height of the images
 #
 # image_width is the width of the images
-def get_network(load_from=None, conv_inter=6, dense_nodes=512, image_height=48, image_width=64):
+def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48, image_width=64):
 
 	# Check for existing network to load
 	if load_from:
@@ -111,6 +111,7 @@ def get_network(load_from=None, conv_inter=6, dense_nodes=512, image_height=48, 
 # labels will be of shape (n_images, height * width)
 # data will be float32, for GPU
 # label will be ints
+# TODO: Make this a more general function, the data loading needs to be done in multiple places
 def get_data(source_dir):
 
 	# Sub directories
