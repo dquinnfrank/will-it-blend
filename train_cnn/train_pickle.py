@@ -192,6 +192,36 @@ def test_network(model, source_dir, n_batch=32):
 
 		print('Test score:', score)
 
+# Loads data, trains network and tests
+#
+# train_source_dir : The folder to load training data from
+#
+# test_source_dir : The folder to load testing data from
+#
+# load_name : The name of a network to load, new network will be created if this is None
+#
+# save_name : The name to save the network as, not saved if None
+def run_network(train_source_dir, test_source_dir, load_name=None, save_name=None):
+
+	# Get the size of the images
+
+	# Open the first image to get the shape
+	check_dir = os.path.join(train_source_dir, "data")
+	check_name = [ f for f in os.listdir(check_dir) if os.path.isfile(os.path.join(check_dir,f)) ][0]
+	check_item = pickle.load(open(os.path.join(check_dir, check_name),'rb'))
+
+	# Set the shape
+	(ignore, im_h, im_w) = check_item.shape
+
+	# Get the network
+	model = get_network(load_from=load_name, image_height=im_h, image_width=im_w)
+
+	# Train the network
+	train_network(model, train_source_dir, save_to=save_name)
+
+	# Test the network
+	test_network(model, test_source_dir)
+
 # If this is the main, train the network
 # Need the source_dir for the training data and another for the test data
 # Optionally, name to load / save the model
@@ -228,6 +258,10 @@ if __name__ == "__main__":
 		elif sys.argv[5] == "-s":
 			save_name = sys.argv[6]
 
+	# Run and test the network
+	run_network(train_source_dir, test_source_dir, load_name, save_name)
+
+	"""
 	# Get the network
 	model = get_network(load_from=load_name)
 
@@ -236,3 +270,4 @@ if __name__ == "__main__":
 
 	# Test the network
 	test_network(model, test_source_dir)
+	"""
