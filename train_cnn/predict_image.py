@@ -89,11 +89,11 @@ if __name__ == "__main__":
 
 	# Predict the images
 	im_predictions = predictor.get_pix_labels(image_batch)
-	print im_predictions.shape
+	#print im_predictions.shape
 
 	# Reshape, from 1D to 2D
 	im_predictions = im_predictions.reshape((image_batch.shape[0], image_batch.shape[2], image_batch.shape[3]))
-	print im_predictions.shape
+	#print im_predictions.shape
 
 	# Get the pixel values for each labeled image
 	new_im = np.empty((im_predictions.shape[0], im_predictions.shape[1], im_predictions.shape[2], 3), dtype=np.uint8)
@@ -105,8 +105,8 @@ if __name__ == "__main__":
 	new_im = np.rollaxis(new_im, 3, 2)
 
 	#new_im = pp.get_pix_vals(im_predictions)
-	print new_im.shape
-	print new_im.dtype
+	#print new_im.shape
+	#print new_im.dtype
 
 	# Save all of the images
 	# new_im used as intermediate for debugging

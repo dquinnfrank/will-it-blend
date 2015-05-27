@@ -220,10 +220,10 @@ def is_valid(exr_name):
 		return True
 
 # Removes all invalid files from the directory
-# Renames files to maintain incrementing by 1 indexes
+# Does not rename files, gaps will be present in the file indexes
 # WARNING: This function deletes things, use wisely
 # will require sudo permission if files are write protected
-def remove_invalid(source_dir, start_index=None, end_index=None, verbose=False):
+def remove_invalid(source_dir, start_index=None, end_index=None, verbose=False, dry_run=False):
 
 	if verbose:
 
@@ -261,7 +261,9 @@ def remove_invalid(source_dir, start_index=None, end_index=None, verbose=False):
 
 				print "Removing (file not valid): ", file_name
 
-			subprocess.call("rm " + file_name, shell=True)
+			# Do not delete if this is a dry_run
+			if not dry_run:
+				subprocess.call("rm " + file_name, shell=True)
 
 	if verbose:
 
@@ -502,6 +504,7 @@ def process_to_pickle(source_dir, target_dir, start_index=None, end_index=None, 
 		print "Start index: ", start_index
 		print "End index: ", end_index
 		print "Batch size: ", batch_size
+		print "Scale: ", scale
 
 	# Get the shape of the images
 	# Need to get the header from any uncorrupted image
