@@ -193,6 +193,28 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 		# Return the model
 		return model
 
+# Takes data of the form: (n_images, height * width), ints 0 - nb_classes
+# Outputs data: (n_images, height * width * nb_classes), each vector has bit i set to 1 iff pixel is class i
+def make_images_categorical(data_batch):
+
+	# Get the number of classes
+	nb_classes = np.max(data_batch) + 1
+
+	# Initialize the new data batch
+	cate_data = np.zeros((data_batch.shape[0], data_batch.shape[1] * nb_classes))
+
+	# For each pixel, set bit i to 1 iff pixel is of class i
+	# Loop through each image
+	for image_index in range(data_batch.shape[0]):
+
+		# Loop through each pixel
+		for pix_index in range(data_batch.shape[1]):
+
+			# Set only the correct pixel
+			cate_data[image_index][pix_index * nb_classes + data_batch[image_index][pix_index]] = 1
+
+	return cate_data
+
 # Loads the data from pickles and returns each item in order
 # Depth data will be normalized
 # Data will be reshaped to conform to keras requirements
@@ -201,7 +223,7 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 # data will be of shape (n_images, stack, height, width), Ex: (5000, 1, 48, 64)
 # labels will be of shape (n_images, height * width)
 # data will be float32, for GPU
-# label will be ints
+# label will be categorical
 # TODO: Make this a more general function, the data loading needs to be done in multiple places
 def get_data(source_dir):
 
@@ -238,6 +260,9 @@ def get_data(source_dir):
 
 		# Reshape to (n_images, height * width)
 		label_item = label_item.reshape(n_images, height * width)
+
+		# Make each pixel categorical
+		label_item = make_images_categorical(label_item)
 
 		# Make into GPU friendly float32
 		data_item = data_item.astype("float32")
