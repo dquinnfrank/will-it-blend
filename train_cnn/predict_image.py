@@ -13,6 +13,10 @@ import post_process as pp
 # Not needed?
 #from keras.models import Sequential
 
+# The number of classes in the images
+# TODO: Make this automatic
+nb_classes = 13
+
 # Used to predict the labeled pixels for a given image
 class label_pix:
 
@@ -45,9 +49,26 @@ class label_pix:
 	# Turns the categorical output to normal class labels
 	def uncategorize(self, images_to_decode):
 
-		pass
+		# Create new data batch
+		decoded = np.zeros((images_to_decode.shape[0], int(images_to_decode.shape[1] / nb_classes)))
 
-		#for
+		# Go through each image
+		for image_index in range(images_to_decode.shape[0]):
+
+			# Go through each pixel
+			# Each 13 bits is one pixel
+			for pixel_first_index in range(0, images_to_decode.shape[1], nb_classes):
+
+				# Get the active bit, position indicates the class the pixel belongs to
+				active_bits = np.where(images_to_decode[image_index][pixel_first_index:pixel_first_index + nb_classes] == 1)[0]
+
+				# Check for only one active bit
+				if len(active_bits) == 1:
+
+					# Set the decoded pixel
+					decoded[image_index][int(pixel_first_index / nb_classes)] = int(active_bits[0])
+
+		return decoded
 
 # If this is the main, load a pickle of images to predict
 # Predict the labels and save the image to the given folder

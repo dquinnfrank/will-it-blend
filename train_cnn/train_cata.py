@@ -24,6 +24,10 @@ from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.optimizers import SGD, Adadelta, Adagrad
 
+# Number of classes
+# TODO: Make this automatic
+nb_classes = 13
+
 """
 # Sets up the network
 # Returns the constructed network
@@ -180,11 +184,11 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 		# Number of dense nodes is set by dense_nodes
 		# Dropout of .5 in the middle
 		# Input shape: ((4 * conv_inter * height * width)/64)
-		# Output shape: (height * width)
+		# Output shape: (height * width * nb_classes)
 		model.add(Dense((4 * conv_inter * image_height * image_width)/64, dense_nodes, init='normal'))
 		model.add(Activation('relu'))
 		model.add(Dropout(0.5))
-		model.add(Dense(dense_nodes, image_height * image_width, init='normal'))
+		model.add(Dense(dense_nodes, image_height * image_width * nb_classes, init='normal'))
 
 		# let's train the model using SGD + momentum (how original).
 		sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
@@ -196,6 +200,8 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 # Takes data of the form: (n_images, height * width), ints 0 - nb_classes
 # Outputs data: (n_images, height * width * nb_classes), each vector has bit i set to 1 iff pixel is class i
 def make_images_categorical(data_batch):
+
+	global nb_classes
 
 	# Get the number of classes
 	nb_classes = np.max(data_batch) + 1
