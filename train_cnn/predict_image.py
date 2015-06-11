@@ -17,9 +17,15 @@ import post_process as pp
 # TODO: Make this automatic
 nb_classes = 13
 
+# The number of images being tested
+n_images = None
+
+# The size of the images
+height = None
+width = None
+
 # Used to predict the labeled pixels for a given image
 class label_pix:
-
 
 	# Needs the model being used for predictions
 	# model can be the unpacked model, or a string of a file name of a pickled model
@@ -44,6 +50,14 @@ class label_pix:
 
 		pix_labels = self.model.predict_proba(images_to_label)
 
+		# If the model is categorical, the output will need to be decoded
+		# If the shape of the output images is greater than height * width, the model is categorical
+		if pix_labels.shape[1] > height * width:
+
+			print "Uncategorizing"
+
+			pix_labels = self.uncategorize(pix_labels)
+
 		return pix_labels
 
 	# Turns the categorical output to normal class labels
@@ -61,6 +75,8 @@ class label_pix:
 
 				# Get the active bit, position indicates the class the pixel belongs to
 				active_bits = np.where(images_to_decode[image_index][pixel_first_index:pixel_first_index + nb_classes] == 1)[0]
+
+				#print images_to_decode[image_index][pixel_first_index:pixel_first_index + nb_classes]
 
 				# Check for only one active bit
 				if len(active_bits) == 1:
@@ -119,11 +135,11 @@ if __name__ == "__main__":
 	im_predictions = predictor.get_pix_labels(image_batch)
 
 	# Reshape, from 1D to 2D
-	im_predictions = im_predictions.reshape((image_batch.shape[0], image_batch.shape[2], image_batch.shape[3]))
+	im_predictions = im_predictions.reshape((n_images, height, width))
 
 	# Get the pixel values for each labeled image
 	new_im = np.empty((im_predictions.shape[0], im_predictions.shape[1], im_predictions.shape[2], 3), dtype=np.uint8)
-	for index in range(image_batch.shape[0]):
+	for index in range(n_images):
 		new_im[index] = pp.get_pix_vals(im_predictions[index])
 
 	# Reorder the axis from n_images * height * width * channels to n_images * channels * width * height

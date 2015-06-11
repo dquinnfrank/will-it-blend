@@ -189,6 +189,7 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 		model.add(Activation('relu'))
 		model.add(Dropout(0.5))
 		model.add(Dense(dense_nodes, image_height * image_width * nb_classes, init='normal'))
+		model.add(Activation('hard_sigmoid'))
 
 		# let's train the model using SGD + momentum (how original).
 		sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
@@ -287,17 +288,24 @@ def get_data(source_dir):
 # n_epochs sets the number of epochs to train for each batch. This is kept low to prevent over fitting on a single batch
 #
 # n_batch is the number of images to process at once. Set based on the available GPU memory
-def train_network(model, source_dir, save_to=None, n_epochs=2, n_batch=32):
+def train_network(model, source_dir, save_to=None, n_epochs=10, n_batch=32):
 
-	# Process all of the data in source_dir
-	for train_data, train_label in get_data(source_dir):
+	# Loop for the specified number of epochs
+	# This outer loop is needed because the images cannot all fit into main memory at once
+	for current_epoch in range(n_epochs):
 
-		# Train the model
-		model.fit(train_data, train_label, batch_size=n_batch, nb_epoch=n_epochs)
+		print "\nRunning epoch number: ", current_epoch
+		print "\n"
 
-		# Save the model, if save_to is set
-		if save_to:
-			pickle.dump(model, open(save_to ,'wb'))
+		# Process all of the data in source_dir
+		for train_data, train_label in get_data(source_dir):
+
+			# Train the model
+			model.fit(train_data, train_label, batch_size=n_batch, nb_epoch=1)
+
+			# Save the model, if save_to is set
+			if save_to:
+				pickle.dump(model, open(save_to ,'wb'))
 
 # Tests the model using all of the data in source_dir
 #
