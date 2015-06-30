@@ -1,9 +1,10 @@
 import numpy as np
 from keras.models import Sequential
 from keras.optimizers import SGD
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, UnPooling2D
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.layers.core import Flatten
 from keras.datasets import mnist
+from keras.layers.additional import UnPooling2D
 
 import os
 import sys
@@ -62,10 +63,10 @@ def get_data(source_dir):
 		original_item = original_item.astype("float32")
 
 		# The input image is a noisy version of the true image
-		noise_item = original_item + noise_amount*original_item.std()*np.random.random(original_item.shape)
+		#noise_item = original_item + noise_amount*original_item.std()*np.random.random(original_item.shape)
 
 		# Generate the next batch
-		yield noise_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
+		yield original_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
 
 # The network configuration
 
@@ -134,18 +135,25 @@ X_train = np.expand_dims(X_train, axis=0)
 X_train = np.rollaxis(X_train, 0, 2)
 
 # Make the input and output
-X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
-X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
+#X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
+#X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
 
 # Show shapes for debugging
-print X_input.shape
-print X_output.shape
+#print X_input.shape
+#print X_output.shape
 
-# Train the model
-reconstruction_model.fit(X_input, X_output, batch_size=128)
+# Get a new noisy image for each training set
+for epoch in range(100):
+
+	# Make the input and output
+	X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
+	X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
+
+	# Train the model
+	reconstruction_model.fit(X_input, X_output, batch_size=128, nb_epoch=10)
 
 # Save the model
-pickle.dump(reconstruction_model, open("../trained_models/mnist_recon.p" ,'wb'))
+pickle.dump(reconstruction_model, open("../trained_models/mnist_recon_1.p" ,'wb'))
 
 """
 # Loop for the specified number of epochs

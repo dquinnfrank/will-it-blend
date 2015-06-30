@@ -46,6 +46,9 @@ images_to_use = images_to_use.astype("float32")
 # Get the image reconstructions
 predicted_images = model.predict(images_to_use)
 
+# Get the test score
+model.evaluate(images_to_use, images_to_use.reshape(to_use, 28 * 28), batch_size=128)
+
 # Denormalize all of the images
 images_to_use *= 255
 predicted_images *= 255
@@ -78,14 +81,24 @@ for image_index in range(to_use):
 			# Reconstructed
 			compare_images[image_index][w_index + 28][h_index] = predicted_images[image_index][h_index][w_index]
 
+# Get the pixel values for each labeled image
+new_im = np.empty((compare_images.shape[0], compare_images.shape[1], compare_images.shape[2], 3), dtype=np.uint8)
+for im_index in range(compare_images.shape[0]):
+	for w_index in range(compare_images.shape[1]):
+		for h_index in range(compare_images.shape[2]):
+			new_im[im_index][w_index][h_index][0] = compare_images[im_index][w_index][h_index]
+			new_im[im_index][w_index][h_index][1] = compare_images[im_index][w_index][h_index]
+			new_im[im_index][w_index][h_index][2] = compare_images[im_index][w_index][h_index]
+
 # Add the channel dim
-compare_images = np.expand_dims(compare_images, axis=0)
-compare_images = np.rollaxis(compare_images, 0, 2)
-print compare_images.shape
-print compare_images.dtype
-print np.max(compare_images)
+#compare_images = np.expand_dims(compare_images, axis=0)
+new_im = np.rollaxis(new_im, 3, 1)
+print new_im.shape
+print new_im.dtype
+print np.max(new_im)
+print type(new_im)
 
 # Save all of the images
 for save_index in range(to_use):
 
-	pp.save_image(compare_images[save_index], save_dir + "/" + str(save_index).zfill(4))
+	pp.save_image(new_im[save_index], save_dir + "/" + str(save_index).zfill(4) + ".png")
