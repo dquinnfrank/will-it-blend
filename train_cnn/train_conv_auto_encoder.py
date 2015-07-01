@@ -153,7 +153,8 @@ for epoch in range(100):
 	reconstruction_model.fit(X_input, X_output, batch_size=128, nb_epoch=10)
 
 # Save the model
-pickle.dump(reconstruction_model, open("../trained_models/mnist_recon_1.p" ,'wb'))
+#pickle.dump(reconstruction_model, open("../trained_models/mnist_recon_1.p" ,'wb'))
+reconstruction_model.save_weights("../trained_models/mnist_recon_2.ke")
 
 """
 # Loop for the specified number of epochs

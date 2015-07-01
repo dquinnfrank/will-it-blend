@@ -174,17 +174,17 @@ def get_network(load_from=None, conv_inter=32, dense_nodes=512, image_height=48,
 		# Flattens 2D data into 1D
 		# Input shape: (4 * conv_inter, height / 8, width / 8)
 		# Output shape: ((4 * conv_inter * height * width)/64)
-		model.add(Flatten((4 * conv_inter * image_height * image_width) / 64))
+		model.add(Flatten())
 
 		# Two layer dense network
 		# Number of dense nodes is set by dense_nodes
 		# Dropout of .5 in the middle
 		# Input shape: ((4 * conv_inter * height * width)/64)
 		# Output shape: (height * width)
-		model.add(Dense((4 * conv_inter * image_height * image_width)/64, dense_nodes, init='normal'))
+		model.add(Dense((4 * conv_inter * image_height * image_width)/64, dense_nodes))
 		model.add(Activation('relu'))
 		model.add(Dropout(0.5))
-		model.add(Dense(dense_nodes, image_height * image_width, init='normal'))
+		model.add(Dense(dense_nodes, image_height * image_width))
 
 		# let's train the model using SGD + momentum (how original).
 		sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
