@@ -10,6 +10,8 @@ import os
 import sys
 import cPickle as pickle
 
+import importlib
+
 # Set the recursion limit high, for pickling the entire network
 sys.setrecursionlimit(10000)
 
@@ -67,7 +69,7 @@ def get_data(source_dir):
 
 		# Generate the next batch
 		yield original_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
-
+"""
 # The network configuration
 
 # The number of convolution feature maps to create
@@ -117,6 +119,9 @@ sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 
 # Put the model together
 reconstruction_model.compile(loss='mse', optimizer=sgd)
+"""
+
+reconstruction_model = (importlib.import_module("structure_models.CAE_2conv_pool_relu")).get_model()
 
 # Train the model on MNIST
 # the data, shuffled and split between tran and test sets
@@ -143,18 +148,18 @@ X_train = np.rollaxis(X_train, 0, 2)
 #print X_output.shape
 
 # Get a new noisy image for each training set
-for epoch in range(100):
+for epoch in range(50):
 
 	# Make the input and output
 	X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
 	X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
 
 	# Train the model
-	reconstruction_model.fit(X_input, X_output, batch_size=128, nb_epoch=10)
+	reconstruction_model.fit(X_input, X_output, batch_size=128, nb_epoch=1)
 
 # Save the model
 #pickle.dump(reconstruction_model, open("../trained_models/mnist_recon_1.p" ,'wb'))
-reconstruction_model.save_weights("../trained_models/mnist_recon_2.ke")
+reconstruction_model.save_weights("../trained_models/multi_conv_relu.ke", overwrite=True)
 
 """
 # Loop for the specified number of epochs
