@@ -12,9 +12,6 @@ import cPickle as pickle
 
 import importlib
 
-# Set the recursion limit high, for pickling the entire network
-sys.setrecursionlimit(10000)
-
 # Loads the data from pickles and returns each item in order
 # Depth data will be normalized
 # Data will be reshaped to conform to keras requirements
@@ -85,46 +82,95 @@ def get_data(source_dir):
 			# Generate the next batch
 			yield original_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
 
-reconstruction_model = (importlib.import_module("structure_models.CAE_2conv_pool_relu")).get_model()
+# This class manages a convolutional auto-encoder
+# Main use is training and saving a CAE for use in a different network
+class CAE:
 
-# Train the model on MNIST
-# the data, shuffled and split between tran and test sets
-#(X_train, y_train), (X_test, y_test) = mnist.load_data()
+	# Loads the model structure
+	# The model must be saved in the folder structure_models
+	def __init__(self, structure_name):
 
-# Make GPU friendly
-#X_train = X_train.astype("float32")
+		self.reconstruction_model = (importlib.import_module("structure_models." + structure_name)).get_model()
 
-# Normalize
-#X_train /= 255
+	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_s=32):
 
-# Add the stack dimension, needed for correct processing in the convolutional layers
-#X_train = np.expand_dims(X_train, axis=0)
+		# Get a new noisy image for each training set
+		for epoch in range(epochs):
 
-# Reorder axis to (n_images, stack, height, width)
-#X_train = np.rollaxis(X_train, 0, 2)
+			print "Running epoch: ", epoch
 
-# Make the input and output
-#X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
-#X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
+			# Get each training set
+			for X_train, X_target in get_data(train_data_dir):
 
-# Show shapes for debugging
-#print X_input.shape
-#print X_output.shape
+				# Train the model
+				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_s, nb_epoch=1)
 
-# Get a new noisy image for each training set
-for epoch in range(25):
+			# Save the model after each training set, if save_name is set
+			if save_name:
+				self.reconstruction_model.save_weights(save_name, overwrite=True)
 
-	print "Running epoch: ", epoch
+# If this is the main, use command line arguments to run the network
+if __name__ == "__main__":
 
-	# Get each training set
-	for X_train, X_target in get_data("../generated_data/set_002_25_tr"):
+	# If there are no arguments, show usage
+	if len(sys.argv) < 3:
 
-		# Make the input and output
-		#X_input = X_train + .2*X_train.std()*np.random.random(X_train.shape)
-		#X_output = X_train.reshape(X_train.shape[0], X_train.shape[1] * X_train.shape[2] * X_train.shape[3])
+		print "Usage: CAE structure_name train_data_dir [-s save_name -e epochs -b batch_size]"
 
-		# Train the model
-		reconstruction_model.fit(X_train, X_target, batch_size=32, nb_epoch=1)
+		sys.exit(1)
 
-	# Save the model after each training set
-	reconstruction_model.save_weights("../trained_models/person_multi_conv_relu.ke", overwrite=True)
+	# Get the structure name
+	structure_name = sys.argv[1]
+
+	# Get the training data directory
+	train_data_dir = sys.argv[2]
+
+	# Get the optional arguments
+	save_name = None
+	epochs = 25
+	batch_size = 32
+	arg_index = 3
+	while arg_index < len(sys.argv):
+
+		# Flag for save name
+		if sys.argv[arg_index] == "-s":
+
+			# Set name
+			save_name = sys.argv[arg_index + 1]
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for max epochs
+		elif sys.argv[arg_index] == "-e":
+
+			# Set epochs
+			epochs = int(sys.argv[arg_index + 1])
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for batch size
+		elif sys.argv[arg_index] == "-b":
+
+			# Set the batch size
+			batch_size = int(sys.argv[arg_index + 1])
+
+			# Skip to the next flag
+			arg_index += 2
+
+	# Show the network configuration
+	print "\nConfiguration"
+	print "Model structure: ", structure_name
+	print "Training data: ", train_data_dir
+	print "Save name: ", save_name
+	print "Epochs: ", epochs
+	print "Batch size: ", batch_size
+	print ""
+
+	# Create the network
+	CAE_manage = CAE(structure_name)
+
+	# Train the network
+	# Also saves, if save_name is set
+	CAE.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
