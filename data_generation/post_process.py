@@ -500,8 +500,7 @@ class Image_processing:
 		# Make sure that the end index is aligned to the batch size
 		end_index = (end_index // batch_size) * batch_size
 
-		# Loop control
-		done = False
+		# If start_index is not sent, set it to the lowest file in the set
 		if start_index:
 			index = start_index
 		else:
@@ -542,6 +541,9 @@ class Image_processing:
 		# shape (batch_size, height, width)
 		data_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])))
 		label_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])), dtype='uint8')
+
+		# Loop control
+		done = False
 
 		# Loop through all data, getting batches
 		while not done and index < end_index:

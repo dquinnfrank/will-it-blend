@@ -1,3 +1,7 @@
+# Trains a convolutional auto encoder
+# Can save the informational layers in the following scheme, layers are assumed the follow each other:
+# []
+
 import numpy as np
 from keras.models import Sequential
 from keras.optimizers import SGD
@@ -22,10 +26,7 @@ import importlib
 # data will be float32, for GPU
 # label will be categorical
 # TODO: Make this a more general function, the data loading needs to be done in multiple places
-def get_data(source_dir):
-
-	# Amount of noise to add to the images
-	noise_amount = .2
+def get_data(source_dir, noise_amount = .2):
 
 	# Sub directories
 	data_dir = os.path.join(source_dir, "data")
@@ -90,7 +91,7 @@ class CAE:
 	# The model must be saved in the folder structure_models
 	def __init__(self, structure_name):
 
-		self.reconstruction_model = (importlib.import_module("structure_models." + structure_name)).get_model()
+		self.reconstruction_model, self.encoder_slice = (importlib.import_module("structure_models." + structure_name)).get_model()
 
 	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_s=32):
 
@@ -107,6 +108,8 @@ class CAE:
 
 			# Save the model after each training set, if save_name is set
 			if save_name:
+
+				# Save the entire network
 				self.reconstruction_model.save_weights(save_name, overwrite=True)
 
 # If this is the main, use command line arguments to run the network
