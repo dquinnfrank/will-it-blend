@@ -93,7 +93,7 @@ class CAE:
 
 		self.reconstruction_model, self.encoder_slice = (importlib.import_module("structure_models." + structure_name)).get_model()
 
-	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_s=32):
+	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32):
 
 		# Get a new noisy image for each training set
 		for epoch in range(epochs):
@@ -101,13 +101,28 @@ class CAE:
 			print "Running epoch: ", epoch
 
 			# Get each training set
+			item_count = 0
 			for X_train, X_target in get_data(train_data_dir):
 
 				# Train the model
-				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_s, nb_epoch=1)
+				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
+
+				# Save every 5th item
+				if item_count % 5 == 0:
+
+					print "Saving temporary"
+					print save_name
+					print save_name[:-3] + "_temp.ke"
+
+					# Save the entire network
+					self.reconstruction_model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
+
+				item_count += 1
 
 			# Save the model after each training set, if save_name is set
 			if save_name:
+
+				print "Saving after epoch: ", epoch
 
 				# Save the entire network
 				self.reconstruction_model.save_weights(save_name, overwrite=True)
@@ -162,6 +177,13 @@ if __name__ == "__main__":
 			# Skip to the next flag
 			arg_index += 2
 
+		# Flag not known
+		else:
+			print "Flag not known: ", sys.argv[arg_index]
+
+			# Skip to the next flag
+			arg_index += 2
+
 	# Show the network configuration
 	print "\nConfiguration"
 	print "Model structure: ", structure_name
@@ -176,4 +198,4 @@ if __name__ == "__main__":
 
 	# Train the network
 	# Also saves, if save_name is set
-	CAE.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
+	CAE_manage.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
