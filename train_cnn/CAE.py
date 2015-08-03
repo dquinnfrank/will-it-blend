@@ -13,6 +13,7 @@ from keras.layers.additional import UnPooling2D
 import os
 import sys
 import cPickle as pickle
+from random import shuffle
 
 import importlib
 
@@ -39,6 +40,9 @@ def get_data(source_dir, noise_amount = .2):
 
 	# Get the names of all of the data items
 	all_names = sorted([ f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir,f)) ])
+
+	# Shuffle the data
+	shuffle(all_names)
 
 	# Iterate through all names
 	for name in all_names:
