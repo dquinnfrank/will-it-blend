@@ -17,14 +17,19 @@ import cPickle as pickle
 import importlib
 
 # Loads the data from pickles and returns each item in order
+# The 
+#
 # Depth data will be normalized
 # Data will be reshaped to conform to keras requirements
+#
 # This is a generator function
+#
 # source_dir is the directory containing the images, it should have sub directories: data, labels
 # data will be of shape (n_images, stack, height, width), Ex: (5000, 1, 48, 64)
 # labels will be of shape (n_images, height * width)
 # data will be float32, for GPU
-# label will be categorical
+# label will be float32
+#
 # TODO: Make this a more general function, the data loading needs to be done in multiple places
 def get_data(source_dir, noise_amount = .2):
 
@@ -46,19 +51,24 @@ def get_data(source_dir, noise_amount = .2):
 			original_item = pickle.load(open(os.path.join(data_dir, name), 'rb'))
 
 		# The data is corrupt
+		# Occurs when the file itself has a problem
 		except EOFError:
 
-			print "Item corrupt"
+			print "File corrupt"
 
 			# Ignore this item and load the next one
 			 #continue
 
+		# Another form of data corruption
+		# Occurs when the pickle is not complete, usually an incomplete save
+		except ValueError:
+
+			print "Pickle corrupt"
+
+			# Ignore it and go to the next one
+
 		# Item is valid
 		else:
-
-			# Load the label batch
-			#label_item = pickle.load(open(os.path.join(label_dir, name), 'rb'))
-
 			# Get the shape of the input
 			(n_images, height, width) = original_item.shape
 
@@ -81,7 +91,7 @@ def get_data(source_dir, noise_amount = .2):
 			noise_item = original_item + noise_amount*original_item.std()*np.random.random(original_item.shape)
 
 			# Generate the next batch
-			yield original_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
+			yield noise_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
 
 # This class manages a convolutional auto-encoder
 # Main use is training and saving a CAE for use in a different network
@@ -111,8 +121,6 @@ class CAE:
 				if item_count % 5 == 0:
 
 					print "Saving temporary"
-					print save_name
-					print save_name[:-3] + "_temp.ke"
 
 					# Save the entire network
 					self.reconstruction_model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
