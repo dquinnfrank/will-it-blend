@@ -1,5 +1,4 @@
-# Trains a convolutional auto encoder
-# 
+# Trains a model to produce a mask image of body parts
 
 import numpy as np
 from keras.models import Sequential
@@ -95,117 +94,38 @@ def get_data(source_dir, noise_amount = .2):
 			# Generate the next batch
 			yield noise_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
 
-# This class manages a convolutional auto-encoder
-# Main use is training and saving a CAE for use in a different network
-class CAE:
+class Mask:
 
 	# Loads the model structure
-	# The model must be saved in the folder structure_models
-	def __init__(self, structure_name):
+	#
+	# Optionally loads a pretrained layer with the parameter pretrained_layer
+	# Requires information to be sent as (pretrained_structure_name, pretrained_model_name)
+	# pretrained_structure_name is the model to load without any weights initialized
+	# pretrained_model_name is the weights that have been saved from a trained model
+	# Layers before "encoder_slice" must be compatable in the Mask and CAE models
+	#
+	# Optionally loads a trained version of the same model, this will overwrite pretrained_layer if it is sent
+	# trained_model is the name of the weights to load
+	def __init__(self, pretrained_layer=None, trained_model=None):
 
-		self.reconstruction_model, self.encoder_slice = (importlib.import_module("structure_models." + structure_name)).get_model()
+		pass
 
+	# Trains the model
+	#
+	# train_data_dir is the name of the directory that holds both the data and the labels
+	#
+	# save_name is the name, including path, to save the model as once training is complete
+	# Temporary files will regurally be saved as "[save_name]_temp.ke"
+	#
+	# epochs is the number of times to process the data
+	# The display will always show that training is on epoch 0, because each data batch is processed separately
+	#
+	# batch_size specifies the number of images to process at once
 	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32):
 
-		# Get a new noisy image for each training set
-		for epoch in range(epochs):
+		pass
 
-			print "Running epoch: ", epoch
-
-			# Get each training set
-			item_count = 0
-			for X_train, X_target in get_data(train_data_dir):
-
-				# Train the model
-				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
-
-				# Save every 5th item
-				if item_count % 5 == 0 and save_name:
-
-					print "Saving temporary"
-
-					# Save the entire network
-					self.reconstruction_model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
-
-				item_count += 1
-
-			# Save the model after each training set, if save_name is set
-			if save_name:
-
-				print "Saving after epoch: ", epoch
-
-				# Save the entire network
-				self.reconstruction_model.save_weights(save_name, overwrite=True)
-
-# If this is the main, use command line arguments to run the network
+# If this has been run from the commandline, train the network using the given options
 if __name__ == "__main__":
 
-	# If there are no arguments, show usage
-	if len(sys.argv) < 3:
-
-		print "Usage: CAE structure_name train_data_dir [-s save_name -e epochs -b batch_size]"
-
-		sys.exit(1)
-
-	# Get the structure name
-	structure_name = sys.argv[1]
-
-	# Get the training data directory
-	train_data_dir = sys.argv[2]
-
-	# Get the optional arguments
-	save_name = None
-	epochs = 25
-	batch_size = 32
-	arg_index = 3
-	while arg_index < len(sys.argv):
-
-		# Flag for save name
-		if sys.argv[arg_index] == "-s":
-
-			# Set name
-			save_name = sys.argv[arg_index + 1]
-
-			# Skip to the next flag
-			arg_index += 2
-
-		# Flag for max epochs
-		elif sys.argv[arg_index] == "-e":
-
-			# Set epochs
-			epochs = int(sys.argv[arg_index + 1])
-
-			# Skip to the next flag
-			arg_index += 2
-
-		# Flag for batch size
-		elif sys.argv[arg_index] == "-b":
-
-			# Set the batch size
-			batch_size = int(sys.argv[arg_index + 1])
-
-			# Skip to the next flag
-			arg_index += 2
-
-		# Flag not known
-		else:
-			print "Flag not known: ", sys.argv[arg_index]
-
-			# Skip to the next flag
-			arg_index += 2
-
-	# Show the network configuration
-	print "\nConfiguration"
-	print "Model structure: ", structure_name
-	print "Training data: ", train_data_dir
-	print "Save name: ", save_name
-	print "Epochs: ", epochs
-	print "Batch size: ", batch_size
-	print ""
-
-	# Create the network
-	CAE_manage = CAE(structure_name)
-
-	# Train the network
-	# Also saves, if save_name is set
-	CAE_manage.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
+	pass
