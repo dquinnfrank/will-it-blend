@@ -3,13 +3,9 @@ from keras.models import Sequential
 from keras.optimizers import SGD
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.layers.core import Flatten, Activation
-from keras.datasets import mnist
 from keras.layers.additional import UnPooling2D
 
-import os
-import sys
-
-def get_model(load_name = None, conv_features = 6):
+def get_model(load_name = None, conv_features = 6, lr=.01, decay=1e-6, momentum=0.9, nesterov=True, loss='mse'):
 
 	# This marks index of the layer that has the reduced data, needed for building a new model with the encoder as the first part
 	encoded_index = 4
@@ -61,13 +57,15 @@ def get_model(load_name = None, conv_features = 6):
 	reconstruction_model.add(Flatten())
 
 	# The optimizer
-	sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+	sgd = SGD(lr=lr, decay=decay, momentum=momentum, nesterov=nesterov)
 
 	# Put the model together
-	reconstruction_model.compile(loss='mse', optimizer=sgd)
+	reconstruction_model.compile(loss=loss, optimizer=sgd)
 
 	# Load weights, if optional parameter is set
 	if load_name :
 		reconstruction_model.load_weights(load_name)
+
+	#TODO: return the number of pools and border modes
 
 	return reconstruction_model, encoded_index
