@@ -39,6 +39,7 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 
 	# The rest of the network configuration
 	# height and width reduced depending on the encoder
+	# TODO: Track the chages from valid and full border modes
 
 	# Convolutional step
 	# Input shape (n_images, 1, height, width)
@@ -48,10 +49,6 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	# Non-linear activation
 	model.add(Activation("sigmoid"))
 
-	# Do an Unpooling, to get the data back to the images back to the original size
-	# TODO: this is based on knowing the structure of the CAE being loaded
-	
-
 	# Do another convolutional step
 	# Input shape (n_images, conv_features, height, width)
 	# Output shape (n_images, 2 * conv_features, height, width)
@@ -59,3 +56,27 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 
 	# Non-linear activation
 	model.add(Activation("sigmoid"))
+
+	# More convoluting
+	# Input shape (n_images, 2 * conv_features, height, width)
+	# Output shape (n_images, 4 * conv_features, height, width)
+	model.add(Convolution2D(4 * conv_features, 2 * conv_features, 3, 3, border_mode='valid'))
+
+	# From here, the network will focus on getting the data to the target shape
+	# The target shape (before flattening) is (n_images, 12, height, width)
+
+	# Unpool, to get the height and width back
+	model.add(UnPooling2D(stretch_size=(2,2)))
+
+	# Convolution to get the feature stacks into 12
+	model.add(Convolution2D(12, 4 * conv_features, 3, 3, border_mode='full'))
+
+	# Flatten the network, because training targets must be (n_images, stack * height * width)
+	model.add(Flatten())
+
+	# Load weights, if optional parameter is set
+	if load_name :
+		reconstruction_model.load_weights(load_name)
+
+	# Return the network
+	return model

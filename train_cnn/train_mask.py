@@ -15,6 +15,31 @@ from random import shuffle
 
 import importlib
 
+# Takes a batch of images where each pixel corresponds to a class and returns a plane representation
+# Each image will have a number of planes equal to the number of classes, there will be a 1 in plane i, index (x, y), where index (x, y) was of class i in the original image
+def make_planes(class_batch, total_classes):
+
+	# Make a new array of shape (batch_size, x_max, y_max, total_classes)
+	plane_batch = np.zeros((class_batch.shape[0], class_batch.shape[1], class_batch.shape[2], total_classes), dtype=class_batch.dtype)
+
+	print plane_batch.shape
+
+	# Go through each image
+	for batch_index in range(class_batch.shape[0]):
+
+		# Go through each pixel
+		for x_index in range(class_batch.shape[1]):
+			for y_index in range(class_batch.shape[2]):
+
+				# Get the class of the pixel
+				pixel_class = class_batch[batch_index][x_index][y_index]
+
+				# Set the pixel (x, y) in plane i, where i is the class of the pixel
+				plane_batch[batch_index][x_index][y_index][pixel_class] = 1
+
+	# Return the plane_batch
+	return plane_batch
+
 # Loads the data from pickles and returns them in a shuffled order
 #
 # Depth data will be normalized
@@ -29,86 +54,66 @@ import importlib
 # label will be float32
 #
 # TODO: Make this a more general function, the data loading needs to be done in multiple places
-def get_data(source_dir, noise_amount = .2):
+def get_data(source_dir):
 
 	# Sub directories
 	data_dir = os.path.join(source_dir, "data")
-	#label_dir = os.path.join(source_dir, "label")
+	label_dir = os.path.join(source_dir, "label")
 
 	# Get the names of all of the data items
-	all_names = sorted([ f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir,f)) ])
-
-	# Shuffle the data
-	shuffle(all_names)
+	all_names = [ f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir,f)) ]
 
 	# Iterate through all names
 	for name in all_names:
 
-		# Corrupt data will cause exceptions
-		try:
+		# Load the data batch
+		data_item = pickle.load(open(os.path.join(data_dir, name), 'rb'))
 
-			# Load the data batch
-			print "\nLoading item: ", os.path.join(data_dir, name)
-			original_item = pickle.load(open(os.path.join(data_dir, name), 'rb'))
+		# Load the label batch
+		label_item = pickle.load(open(os.path.join(label_dir, name), 'rb'))
 
-		# The data is corrupt
-		# Occurs when the file itself has a problem
-		except EOFError:
+		# Get the shape of the input
+		(n_images, height, width) = data_item.shape
 
-			print "File corrupt"
+		# Normalize the depth data
+		input_max = np.max(data_item)
+		input_min = np.min(data_item)
+		input_range = input_max - input_min
+		data_item = (data_item - input_min) / input_range
 
-			# Ignore this item and load the next one
-			 #continue
+		# Add the stack dimension, needed for correct processing in the convolutional layers
+		data_item = np.expand_dims(data_item, axis=0)
 
-		# Another form of data corruption
-		# Occurs when the pickle is not complete, usually an incomplete save
-		except ValueError:
+		# Reorder axis to to (n_images, stack, height, width)
+		data_item = np.rollaxis(data_item, 0, 2)
 
-			print "Pickle corrupt"
+		# Reshape to (n_images, height * width)
+		label_item = label_item.reshape(n_images, height * width)
 
-			# Ignore it and go to the next one
+		# Make each pixel categorical
+		label_item = make_planes(label_item)
 
-		# Item is valid
-		else:
-			# Get the shape of the input
-			(n_images, height, width) = original_item.shape
+		# Make into GPU friendly float32
+		data_item = data_item.astype("float32")
 
-			# Normalize the depth data
-			input_max = np.max(original_item)
-			input_min = np.min(original_item)
-			input_range = input_max - input_min
-			original_item = (original_item - input_min) / input_range
-
-			# Add the stack dimension, needed for correct processing in the convolutional layers
-			original_item = np.expand_dims(original_item, axis=0)
-
-			# Reorder axis to (n_images, stack, height, width)
-			original_item = np.rollaxis(original_item, 0, 2)
-
-			# Make into GPU friendly float32
-			original_item = original_item.astype("float32")
-
-			# The input image is a noisy version of the true image
-			noise_item = original_item + noise_amount*original_item.std()*np.random.random(original_item.shape)
-
-			# Generate the next batch
-			yield noise_item, original_item.reshape(original_item.shape[0], original_item.shape[1] * original_item.shape[2] * original_item.shape[3])
+		# Generate the next batch
+		yield data_item, label_item
 
 class Mask:
 
 	# Loads the model structure
 	#
-	# Optionally loads a pretrained layer with the parameter pretrained_layer
-	# Requires information to be sent as (pretrained_structure_name, pretrained_model_name)
-	# pretrained_structure_name is the model to load without any weights initialized
-	# pretrained_model_name is the weights that have been saved from a trained model
-	# Layers before "encoder_slice" must be compatable in the Mask and CAE models
+	# encoder_layer_structure is the name of the structure model to use for the first layers of the network
+	#
+	# Optionally loads pretrained weights for the encoder
 	#
 	# Optionally loads a trained version of the same model, this will overwrite pretrained_layer if it is sent
 	# trained_model is the name of the weights to load
-	def __init__(self, pretrained_layer=None, trained_model=None):
+	def __init__(self, structure_name, encoder_layer_structure = "CAE_2conv_pool_relu", encoder_layer_weight_name = None, trained_model=None):
 
-		pass
+		# Get the model
+		self.model = (importlib.import_module("structure_models." + structure_name)).get_model(encoder_layer_structure = encoder_layer_structure, pretrained_layer_name = encoder_layer_weight_name, load_name = trained_model)
+
 
 	# Trains the model
 	#
@@ -123,9 +128,116 @@ class Mask:
 	# batch_size specifies the number of images to process at once
 	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32):
 
-		pass
+		# Get a new noisy image for each training set
+		for epoch in range(epochs):
+
+			print "Running epoch: ", epoch
+
+			# Get each training set
+			item_count = 0
+			for X_train, X_target in get_data(train_data_dir):
+
+				# Train the model
+				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
+
+				# Save every 5th item
+				if item_count % 5 == 0 and save_name:
+
+					print "Saving temporary"
+
+					# Save the entire network
+					self.reconstruction_model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
+
+				item_count += 1
+
+			# Save the model after each training set, if save_name is set
+			if save_name:
+
+				print "Saving after epoch: ", epoch
+
+				# Save the entire network
+				self.reconstruction_model.save_weights(save_name, overwrite=True)
 
 # If this has been run from the commandline, train the network using the given options
 if __name__ == "__main__":
 
-	pass
+	# If there are no arguments, show usage
+	if len(sys.argv) < 3:
+
+		print "Usage: train_mask.py structure_name train_data_dir [-p pretained_layer_name -s save_name -e epochs -b batch_size]"
+
+		sys.exit(1)
+
+	# Get the structure name
+	structure_name = sys.argv[1]
+
+	# Get the training data directory
+	train_data_dir = sys.argv[2]
+
+	# Get the optional arguments
+	pretrained_layer_name = None
+	save_name = None
+	epochs = 25
+	batch_size = 32
+	arg_index = 3
+	while arg_index < len(sys.argv):
+
+		# Flag for save name
+		if sys.argv[arg_index] == "-s":
+
+			# Set name
+			save_name = sys.argv[arg_index + 1]
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for max epochs
+		elif sys.argv[arg_index] == "-e":
+
+			# Set epochs
+			epochs = int(sys.argv[arg_index + 1])
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for batch size
+		elif sys.argv[arg_index] == "-b":
+
+			# Set the batch size
+			batch_size = int(sys.argv[arg_index + 1])
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for pretrained layer name
+		elif sys.argv[arg_index] == "-p":
+
+			# Set the pretrained layer name
+			pretrained_layer_name = sys.argv[arg_index + 1]
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag not known
+		else:
+			print "Flag not known: ", sys.argv[arg_index]
+
+			# Skip to the next flag
+			arg_index += 2
+
+	# Show the network configuration
+	print "\nConfiguration"
+	print "Model structure: ", structure_name
+	print "Training data: ", train_data_dir
+	print "Pretrained name: ", pretrained_layer_name
+	print "Save name: ", save_name
+	print "Epochs: ", epochs
+	print "Batch size: ", batch_size
+	print ""
+
+	# Create the network
+	mask_net_manage = Mask(structure_name, encoder_layer_name = pretrained_layer_name)
+
+	# Train the network
+	# Also saves, if save_name is set
+	mask_net_manage.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
