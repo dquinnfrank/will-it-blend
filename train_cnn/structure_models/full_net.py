@@ -5,6 +5,8 @@ from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.layers.core import Flatten, Activation
 from keras.layers.additional import UnPooling2D
 
+import importlib
+
 # This will return a full convolutional nerual net sutiable for creating mask images from depth images
 #
 # encoder_layer_structure specifies the first layers of the model that bring the data down in dimensionality
@@ -69,7 +71,7 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	model.add(UnPooling2D(stretch_size=(2,2)))
 
 	# Convolution to get the feature stacks into 12
-	model.add(Convolution2D(12, 4 * conv_features, 3, 3, border_mode='full'))
+	model.add(Convolution2D(12, 4 * conv_features, 3, 3, border_mode='valid'))
 
 	# Flatten the network, because training targets must be (n_images, stack * height * width)
 	model.add(Flatten())
@@ -77,6 +79,12 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	# Load weights, if optional parameter is set
 	if load_name :
 		reconstruction_model.load_weights(load_name)
+
+	# The optimizer
+	sgd = SGD(lr=lr, decay=decay, momentum=momentum, nesterov=nesterov)
+
+	# Put the model together
+	model.compile(loss=loss, optimizer=sgd)
 
 	# Return the network
 	return model

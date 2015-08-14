@@ -15,14 +15,16 @@ from random import shuffle
 
 import importlib
 
+# TODO: Make this automatic
+# This is the total number of class labels
+nb_classes = 13
+
 # Takes a batch of images where each pixel corresponds to a class and returns a plane representation
 # Each image will have a number of planes equal to the number of classes, there will be a 1 in plane i, index (x, y), where index (x, y) was of class i in the original image
 def make_planes(class_batch, total_classes):
 
 	# Make a new array of shape (batch_size, x_max, y_max, total_classes)
 	plane_batch = np.zeros((class_batch.shape[0], class_batch.shape[1], class_batch.shape[2], total_classes), dtype=class_batch.dtype)
-
-	print plane_batch.shape
 
 	# Go through each image
 	for batch_index in range(class_batch.shape[0]):
@@ -87,11 +89,11 @@ def get_data(source_dir):
 		# Reorder axis to to (n_images, stack, height, width)
 		data_item = np.rollaxis(data_item, 0, 2)
 
-		# Reshape to (n_images, height * width)
-		label_item = label_item.reshape(n_images, height * width)
+		# Make the data into planes
+		label_item = make_planes(label_item, nb_classes)
 
-		# Make each pixel categorical
-		label_item = make_planes(label_item)
+		# Reshape to (n_images, height * width * nb_classes)
+		label_item = label_item.reshape(n_images, height * width * nb_classes)
 
 		# Make into GPU friendly float32
 		data_item = data_item.astype("float32")
@@ -110,6 +112,11 @@ class Mask:
 	# Optionally loads a trained version of the same model, this will overwrite pretrained_layer if it is sent
 	# trained_model is the name of the weights to load
 	def __init__(self, structure_name, encoder_layer_structure = "CAE_2conv_pool_relu", encoder_layer_weight_name = None, trained_model=None):
+
+		# Guard the encoder_layer_structure
+		if not encoder_layer_structure:
+
+			encoder_layer_structure = "CAE_2conv_pool_relu"
 
 		# Get the model
 		self.model = (importlib.import_module("structure_models." + structure_name)).get_model(encoder_layer_structure = encoder_layer_structure, pretrained_layer_name = encoder_layer_weight_name, load_name = trained_model)
@@ -138,7 +145,7 @@ class Mask:
 			for X_train, X_target in get_data(train_data_dir):
 
 				# Train the model
-				self.reconstruction_model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
+				self.model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
 
 				# Save every 5th item
 				if item_count % 5 == 0 and save_name:
@@ -146,7 +153,7 @@ class Mask:
 					print "Saving temporary"
 
 					# Save the entire network
-					self.reconstruction_model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
+					self.model.save_weights(save_name[:-3] + "_temp.ke", overwrite=True)
 
 				item_count += 1
 
@@ -156,7 +163,7 @@ class Mask:
 				print "Saving after epoch: ", epoch
 
 				# Save the entire network
-				self.reconstruction_model.save_weights(save_name, overwrite=True)
+				self.model.save_weights(save_name, overwrite=True)
 
 # If this has been run from the commandline, train the network using the given options
 if __name__ == "__main__":
@@ -236,7 +243,7 @@ if __name__ == "__main__":
 	print ""
 
 	# Create the network
-	mask_net_manage = Mask(structure_name, encoder_layer_name = pretrained_layer_name)
+	mask_net_manage = Mask(structure_name, encoder_layer_structure = pretrained_layer_name)
 
 	# Train the network
 	# Also saves, if save_name is set
