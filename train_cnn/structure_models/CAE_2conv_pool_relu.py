@@ -8,7 +8,7 @@ from keras.layers.additional import UnPooling2D
 def get_model(load_name = None, conv_features = 6, lr=.01, decay=1e-6, momentum=0.9, nesterov=True, loss='mse'):
 
 	# This marks index of the layer that has the reduced data, needed for building a new model with the encoder as the first part
-	encoded_index = 4
+	encoded_index = 6
 
 	# The network configuration
 

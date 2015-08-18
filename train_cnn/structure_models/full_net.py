@@ -7,6 +7,10 @@ from keras.layers.additional import UnPooling2D
 
 import importlib
 
+# This is the total number of classes
+# TODO: make this automatic
+nb_classes = 13
+
 # This will return a full convolutional nerual net sutiable for creating mask images from depth images
 #
 # encoder_layer_structure specifies the first layers of the model that bring the data down in dimensionality
@@ -46,7 +50,7 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	# Convolutional step
 	# Input shape (n_images, 1, height, width)
 	# Output shape (n_images, conv_features, height, width)
-	model.add(Convolution2D(conv_features, 1, 3, 3, border_mode='valid'))
+	model.add(Convolution2D(conv_features, 1, 3, 3, border_mode='full'))
 
 	# Non-linear activation
 	model.add(Activation("sigmoid"))
@@ -62,7 +66,7 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	# More convoluting
 	# Input shape (n_images, 2 * conv_features, height, width)
 	# Output shape (n_images, 4 * conv_features, height, width)
-	model.add(Convolution2D(4 * conv_features, 2 * conv_features, 3, 3, border_mode='valid'))
+	model.add(Convolution2D(4 * conv_features, 2 * conv_features, 3, 3, border_mode='full'))
 
 	# From here, the network will focus on getting the data to the target shape
 	# The target shape (before flattening) is (n_images, 12, height, width)
@@ -71,7 +75,13 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 	model.add(UnPooling2D(stretch_size=(2,2)))
 
 	# Convolution to get the feature stacks into 12
-	model.add(Convolution2D(12, 4 * conv_features, 3, 3, border_mode='valid'))
+	model.add(Convolution2D(nb_classes, 4 * conv_features, 3, 3, border_mode='valid'))
+
+	# Non-linear activation
+	model.add(Activation("sigmoid"))
+
+	# Another convolution to get the border right
+	model.add(Convolution2D(nb_classes, nb_classes, 3, 3, border_mode='valid'))
 
 	# Flatten the network, because training targets must be (n_images, stack * height * width)
 	model.add(Flatten())

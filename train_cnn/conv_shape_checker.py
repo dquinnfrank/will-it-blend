@@ -287,3 +287,4 @@ print "\n"
 print "The flattened dimensions of the start and the end are:"
 print "Flatten starting: ", original_height * original_width * original_stacks
 print "Flatten ending:   ", height * width * stacks
+print "Ratio:            ", height * width * stacks / float(original_height * original_width * original_stacks)

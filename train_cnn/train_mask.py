@@ -121,6 +121,10 @@ class Mask:
 		# Get the model
 		self.model = (importlib.import_module("structure_models." + structure_name)).get_model(encoder_layer_structure = encoder_layer_structure, pretrained_layer_name = encoder_layer_weight_name, load_name = trained_model)
 
+		# Show the model configuration
+		for layer in self.model.layers:
+
+			print layer.get_config(), "\n"
 
 	# Trains the model
 	#
