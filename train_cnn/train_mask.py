@@ -175,7 +175,7 @@ if __name__ == "__main__":
 	# If there are no arguments, show usage
 	if len(sys.argv) < 3:
 
-		print "Usage: train_mask.py structure_name train_data_dir [-p pretained_layer_name -s save_name -e epochs -b batch_size]"
+		print "Usage: train_mask.py structure_name train_data_dir [-p pretained_structure_name -t trained_pretrained_weights -s save_name -e epochs -b batch_size]"
 
 		sys.exit(1)
 
@@ -186,7 +186,8 @@ if __name__ == "__main__":
 	train_data_dir = sys.argv[2]
 
 	# Get the optional arguments
-	pretrained_layer_name = None
+	pretrained_structure_name = None
+	pretrained_weight_name = None
 	save_name = None
 	epochs = 25
 	batch_size = 32
@@ -220,11 +221,20 @@ if __name__ == "__main__":
 			# Skip to the next flag
 			arg_index += 2
 
-		# Flag for pretrained layer name
+		# Flag for pretrained structure name
 		elif sys.argv[arg_index] == "-p":
 
 			# Set the pretrained layer name
-			pretrained_layer_name = sys.argv[arg_index + 1]
+			pretrained_structure_name = sys.argv[arg_index + 1]
+
+			# Skip to the next flag
+			arg_index += 2
+
+		# Flag for pretrained weights
+		elif sys.argv[arg_index] == "-t":
+
+			# Set the pretrained weight name
+			pretrained_weight_name = sys.argv[arg_index + 1]
 
 			# Skip to the next flag
 			arg_index += 2
@@ -240,14 +250,15 @@ if __name__ == "__main__":
 	print "\nConfiguration"
 	print "Model structure: ", structure_name
 	print "Training data: ", train_data_dir
-	print "Pretrained name: ", pretrained_layer_name
+	print "Pretrained structure name: ", pretrained_structure_name
+	print "Pretrained weight name: ", pretrained_weight_name
 	print "Save name: ", save_name
 	print "Epochs: ", epochs
 	print "Batch size: ", batch_size
 	print ""
 
 	# Create the network
-	mask_net_manage = Mask(structure_name, encoder_layer_structure = pretrained_layer_name)
+	mask_net_manage = Mask(structure_name, encoder_layer_structure = pretrained_structure_name, encoder_layer_weight_name = pretrained_weight_name)
 
 	# Train the network
 	# Also saves, if save_name is set

@@ -33,6 +33,7 @@ def get_model(encoder_layer_structure = "CAE_2conv_pool_relu", pretrained_layer_
 
 	# Load the existing weights, if sent
 	if pretrained_layer_name:
+
 		reconstruction_model.load_weights(pretrained_layer_name)
 
 	# Add the layers, up to the encoder slice
