@@ -55,8 +55,10 @@ def make_planes(class_batch, total_classes):
 # data will be float32, for GPU
 # label will be float32
 #
+# If threshold is set, all values in the data set above the threshold will be set to the value of the threshold
+#
 # TODO: Make this a more general function, the data loading needs to be done in multiple places
-def get_data(source_dir):
+def get_data(source_dir, threshold=None):
 
 	# Sub directories
 	data_dir = os.path.join(source_dir, "data")
@@ -76,6 +78,11 @@ def get_data(source_dir):
 
 		# Get the shape of the input
 		(n_images, height, width) = data_item.shape
+
+		# If threshold has been set, truncate all values above threshold
+		if threshold:
+
+			data_item[data_item > threshold] = threshold
 
 		# Normalize the depth data
 		input_max = np.max(data_item)
@@ -137,7 +144,9 @@ class Mask:
 	# The display will always show that training is on epoch 0, because each data batch is processed separately
 	#
 	# batch_size specifies the number of images to process at once
-	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32):
+	#
+	# threshold sets the threshold for the data
+	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32, threshold=None):
 
 		# Get a new noisy image for each training set
 		for epoch in range(epochs):
@@ -145,11 +154,14 @@ class Mask:
 			print "Running epoch: ", epoch
 
 			# Get each training set
+			# Currently using a threshold of 10 for the data set
 			item_count = 0
-			for X_train, X_target in get_data(train_data_dir):
+			for X_train, X_target in get_data(train_data_dir, threshold=threshold):
 
 				# Train the model
-				self.model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1)
+				loss_dict = self.model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1, show_accuracy=True)
+
+				print loss_dict[0]
 
 				# Save every 5th item
 				if item_count % 5 == 0 and save_name:
