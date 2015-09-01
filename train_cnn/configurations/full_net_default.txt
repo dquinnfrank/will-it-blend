@@ -1,0 +1,10 @@
+send_email davidfrank@nevada.unr.edu
+structure_name full_net
+train_data_dir /media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/set_002_processed
+pretrained_structure_name CAE_2conv_pool_relu
+pretrained_weight_name ../trained_models/full_res_more_noise.ke
+save_name ../trained_models/default_full_net.ke
+epochs 10
+batch_size 16
+threshold 10
+early_stop 10

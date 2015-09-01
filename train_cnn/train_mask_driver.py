@@ -2,6 +2,7 @@
 # File should have this structure, order doesn't matter:
 #
 # send_email [string]
+# early_stop [int]
 # structure_name [string]
 # train_data_dir [string]
 # pretrained_structure_name [string]
@@ -13,6 +14,7 @@
 #
 # These are just for the driver and not the network and are optional:
 # send_email: the address to send updates to
+# early_stop: the maximum number of stale cycles to allow
 #
 # These are required:
 #
@@ -32,10 +34,14 @@ import sys
 import os
 import smtplib
 from email.mime.text import MIMEText
+import traceback
+
+# Import the full mask neural net
+import train_mask
 
 # Sends an email to about the program execution
 # email always comes from auto.terminal.message@gmail.com
-def send_status(send_to, subject, message):
+def send_status(send_to, subject, message, network_name=None):
 
 	# The email to send from
 	send_from = "auto.terminal.message@gmail.com"
@@ -48,17 +54,28 @@ def send_status(send_to, subject, message):
 	server.starttls()
 	server.login(send_from, send_password)
 
-	# Create the full message
-	message = "Computer name: " + os.uname[1] + "\n" +\
-		"Info:\n"+ message
+	# Create the message, starting with the network name
+	send_message = "Computer name: " + os.uname()[1] + "\n"
+
+	# Add the network name, if sent
+	if network_name:
+
+		send_message += "Network name: " + network_name + "\n"
+
+	# Add the message
+	send_message += "\nInfo:\n" + message
 
 	# Set the body of the message
-	msg = MIMEText(message)
+	msg = MIMEText(send_message)
 
 	# Set the message meta
 	msg['Subject'] = subject
 	msg['From'] = send_from
 	msg['To'] = send_to
+
+	print "\nSending message to: ", send_to
+	print "The message:\n"
+	print msg.as_string()
 
 	# Send the message
 	server.sendmail(send_from, send_to, msg.as_string())
@@ -91,6 +108,8 @@ epochs = 25
 batch_size = 32
 early_stop = None
 send_email = None
+early_stop = None
+threshold = None
 
 # Load the file and get the arguments
 with open(load_file, "r") as config_file:
@@ -115,7 +134,7 @@ with open(load_file, "r") as config_file:
 
 			pretrained_structure_name = value
 
-		elif command == "pretrained_wieght_name":
+		elif command == "pretrained_weight_name":
 
 			pretrained_weight_name = value
 
@@ -138,6 +157,14 @@ with open(load_file, "r") as config_file:
 		elif command == "send_email":
 
 			send_email = value
+
+		elif command == "early_stop":
+
+			early_stop = int(value)
+
+		elif command == "threshold":
+
+			threshold = int(value)
 
 		# Command was not known
 		else:
@@ -170,26 +197,39 @@ print "Early stop: ", early_stop
 print "\n"
 
 # Create the network with the settings
-mask_net_manage = Mask(structure_name, encoder_layer_structure = pretrained_structure_name, encoder_layer_weight_name = pretrained_weight_name)
+mask_net_manage = train_mask.Mask(structure_name, encoder_layer_structure = pretrained_structure_name, encoder_layer_weight_name = pretrained_weight_name)
 
 # Train will raise exceptions when problems occur
 try:
 
 	# Train the network
-	mask_net_manage.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size)
+	loss = mask_net_manage.train_model(train_data_dir, save_name=save_name, epochs=epochs, batch_size=batch_size, data_threshold=threshold, stale_max=early_stop)
 
-# General exception catch
-except Exception as error_message:
+# This is the early stop exception catch
+except UserWarning as warning_message:
 
-	print error_message
+	print "Early stop triggered:\n"
+	print warning_message
 
 	# Send the message as an email
 	if send_email:
 
-		send_status(send_email, "Exception", error_message)
+		send_status(send_email, "Early stop", "".join(traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback)), network_name=save_name)
+
+# This is for unexpected errors
+except:
+
+	print "Unexpected error occured:\n"
+
+	traceback.print_exc()
+
+	# Send the message as an email
+	if send_email:
+
+		send_status(send_email, "Unexpected error", "".join(traceback.format_exception(sys.exc_type, sys.exc_value, sys.exc_traceback)), network_name=save_name)
 
 # Training completed without issue
 else:
 
 	# Send the all clear message, with the loss
-	send_status(send_email, "Complete", str())
+	send_status(send_email, "Complete", "Loss: " + str(loss), network_name=save_name)

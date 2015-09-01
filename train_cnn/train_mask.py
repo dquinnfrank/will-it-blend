@@ -133,7 +133,7 @@ class Mask:
 
 			print layer.get_config(), "\n"
 
-	# Trains the model
+	# Trains the model, returns the loss of the last cycle
 	#
 	# train_data_dir is the name of the directory that holds both the data and the labels
 	#
@@ -145,8 +145,21 @@ class Mask:
 	#
 	# batch_size specifies the number of images to process at once
 	#
-	# threshold sets the threshold for the data
-	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32, threshold=None):
+	# data_threshold sets the value that all data values will be truncated to
+	#
+	# stale_max is the number of stale cycles before an early stop is triggered, set to None to never stop early
+	#
+	# stale_threshold sets how close loss values must be in order to be considered stale
+	def train_model(self, train_data_dir, save_name=None, epochs=25, batch_size=32, data_threshold=None, stale_max=None, stale_threshold=.001):
+
+		# Start the loss counter
+		# Tracks the number of training cycles that have gone without significant improvment
+		stale_counter = 0
+
+		# This is the loss value to compare new losses to
+		# It is not from the last cycle, it is from the last not stale cycle
+		# Set the last loss to a value outside of the range of the expected loss
+		last_loss = 1.0
 
 		# Get a new noisy image for each training set
 		for epoch in range(epochs):
@@ -154,14 +167,33 @@ class Mask:
 			print "Running epoch: ", epoch
 
 			# Get each training set
-			# Currently using a threshold of 10 for the data set
 			item_count = 0
-			for X_train, X_target in get_data(train_data_dir, threshold=threshold):
+			for X_train, X_target in get_data(train_data_dir, threshold=data_threshold):
 
 				# Train the model
-				loss_dict = self.model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1, show_accuracy=True)
+				history = self.model.fit(X_train, X_target, batch_size=batch_size, nb_epoch=1, show_accuracy=True)
 
-				print loss_dict[0]
+				# Get the loss from the history object
+				loss = history.__dict__["loss"][0]
+
+				# Check for stale cycle
+				if (np.absolute(last_loss - loss) < stale_threshold):
+				# Cycle is stale
+
+					# Increment the counter
+					stale_counter += 1
+
+				# Cycle is not stale
+				else:
+
+					# Reset the counter
+					stale_counter = 0
+
+					# This loss becomes the new comparison loss
+					last_loss = loss
+
+				# Show the stale count
+				print "Stale cycles: ", stale_counter
 
 				# Save every 5th item
 				if item_count % 5 == 0 and save_name:
@@ -173,6 +205,13 @@ class Mask:
 
 				item_count += 1
 
+				# If early stop is set, check for too many stale cycles
+				if stale_max and stale_counter >= stale_max:
+				# Too many stale cycles
+
+					# Raise an exception
+					raise UserWarning("EARLY_STOP, number of stale cycles: " + str(stale_counter))
+
 			# Save the model after each training set, if save_name is set
 			if save_name:
 
@@ -180,6 +219,9 @@ class Mask:
 
 				# Save the entire network
 				self.model.save_weights(save_name, overwrite=True)
+
+			# Return the loss
+			return loss
 
 # If this has been run from the commandline, train the network using the given options
 if __name__ == "__main__":
