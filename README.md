@@ -86,6 +86,7 @@ setup.py can do this by running it with the argument -p, such as python setup.py
 * Any custom modules imported by generate_image.py must be placed into [blender_version]/2.72/scripts/modules . This is due to the fact that blender runs its own python interpreter.
 setup.py can do this when the -c option is used, such as: python setup.py -c . This will copy all files from the folder data_generation/blender_scripts to the modules folder.
 * The OpenEXR bindings for python must be installed. The OpenEXR C++ Library is a prerequisite for the bindings and must be installed on the system before running, on Debian-based Linux this can be done by running sudo apt-get install libopenexr-dev. The Python bindings can be installed by running pip install openexr . The bindings and documentation can be found at: http://www.excamera.com/sphinx/articles-openexr.html . Running setup.py with the -e option will show instructions for Debian-based Linux, other system configurations will need to check the documentation.
+* TODO: add keras additional layer
 
 ============
 Train CNN
