@@ -180,6 +180,7 @@ Basic Theano: http://deeplearning.net/software/theano/install_ubuntu.html
 
 GPU with Theano: http://deeplearning.net/software/theano/tutorial/using_gpu.html
 
+Optional cuDNN for faster CNNs: https://developer.nvidia.com/cudnn
 
 For constructing networks, the Theano wrapper Keras is used.
 
