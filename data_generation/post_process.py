@@ -386,6 +386,154 @@ class Image_processing:
 		# Save the image
 		save_im = PIL_Image.fromarray(im)
 		save_im.save(save_name)
+		
+		# Assigns the depth at the target pixel, or a large positive value if the index is off the image
+	#
+	# returns the depth probe as defined in microsoft paper
+	#
+	# image is a numpy array of shape (height, width)
+	#
+	# target_pixel is a tuple containing the coordinates of the pixel to be accessed
+	#
+	# large_positive is the value to return if the target_pixel is off of the image
+	def depth_probe(image, target_pixel, large_positive=1000000.0):
+
+		# Get image shape info
+		(height, width) = image.shape
+		
+		# Get target_pixel indexes
+		(x_index, y_index) = target_pixel
+
+		# Check that the target pixel is within bounds
+		if 0 <= x_index < width and 0 <= y_index < height:
+		# Within bounds
+
+			# Assign the target value
+			return image[target_pixel]
+			
+		# Outside of the image
+		else:
+
+			# Assign a large positive value
+			return large_positive
+
+	# Creates depth difference feature indices randomly
+	#
+	# returns a list containing tuples of every feature
+	# shape (number_features, )
+	#
+	# number_features is the total number of features to create
+	#
+	# window is the max offset allowable, total range will be  -1 * window to window 
+	def random_feature_list(number_features=2000, window=(100, 100)):
+
+		# The list of features to create
+		feature_list = []
+
+		# Make the specified number of features
+		for feature_index in range(number_features):
+
+			# Create random indices, making sure that they are not already in the list
+			# Indices will be within window range
+			random_indices = ((np.random.randint(low=-window[0], high=window[0]), np.random.randint(low=-window[1], high=window[1])), (np.random.randint(low=-window[0], high=window[0]), np.random.randint(low=-window[1], high=window[1])))
+			while random_indices in feature_list:
+
+				random_indices = ((np.random.randint(low=-window[0], high=window[0]), np.random.randint(low=-window[1], high=window[1])), (np.random.randint(low=-window[0], high=window[0]), np.random.randint(low=-window[1], high=window[1])))
+
+			# Add the feature to the list
+			feature_list.append(random_indices)
+
+		return feature_list
+
+	# Gets the features from a specified pixel, given the image
+	# Computes the features as set in Equation 1 from Real-Time Human Pose Recognition in Parts from Single Depth Images
+	#
+	# returns a numpy array of shape (number_features)
+	# Each location is one of the feature outputs
+	#
+	# image is the image to access, must be a numpy array
+	#
+	# target_pixel is the pixel being classified, must be sent as coordinate pair
+	#
+	# feature_list is the feature offsets to be computed
+	def get_features(image, target_pixel, feature_list):
+
+		# Get a copy of the target_pixel as a numpy array, for computations
+		target_pixel_np = np.array(target_pixel, dtype=int)
+
+		# The array that will hold the computed features
+		feature_array = np.empty((len(feature_list),))
+
+		# Get the depth at the target pixel
+		target_pixel_depth = image[target_pixel]
+
+		# Go through each feature in the list
+		for index, feature_offsets in enumerate(feature_list):
+
+			# Get the offsets as np arrays and nomalize by the target pixel depth
+			feature_first = np.array(feature_offsets[0]) / target_pixel_depth
+			feature_second = np.array(feature_offsets[1]) / target_pixel_depth
+
+			# Cast as ints to make sure indexing works correctly
+			feature_first = feature_first.astype(int)
+			feature_second = feature_second.astype(int)
+
+			# Add the location of the target pixel
+			feature_first += target_pixel
+			feature_second += target_pixel
+
+			# Transform the features into tuples, for the sake of indexing the image
+			feature_first = (feature_first[0], feature_first[1])
+			feature_second = (feature_second[0], feature_second[1])
+
+			# DEBUG PRINT
+			#print "\nAccessing locations:"
+			#print feature_first, "    ", feature_second
+			#print "Values at:"
+			#print image[feature_first], "    ", image[feature_second]
+
+			# Compute the feature as given by the equation
+			feature_array[index] = depth_probe(image, feature_first) - depth_probe(image, feature_second)
+
+		return feature_array
+
+	# Takes a batch of images and returns the depth difference features for every pixel
+	#
+	# returns calculated features with the shape: (n_images, height, width, n_features)
+	#
+	# image_batch is a numpy array of shape (n_images, height, width)
+	# Each pixel has depth info
+	#
+	# feature_list is the features to be computed, typically from random_feature_list
+	#
+	# Process 1 image by sending it with shape (1, height, width)
+	def depth_difference_batch(image_batch, feature_list):
+
+		# Get the basic shape info
+		(n_images, height, width) = image_batch.shape
+
+		# Create the new batch
+		processed_images = np.empty(image_batch.shape + (len(feature_list),))
+
+		# Go through each image
+		for image_index, image in enumerate(image_batch):
+
+			# Go through each pixel in each image
+			for height_index in range(height):
+				for width_index in range(width):
+
+					# Set the target pixel value
+					target_pixel = (height_index, width_index)
+
+					# Get the features for the pixel and place them into the processed images
+					processed_images[image_index][target_pixel] = get_features(image, target_pixel, feature_list)
+
+		# Return the processed images
+		return processed_images
+		
+	# Processes images from the source directory into depth difference features and saves them to the destination directory
+	#
+	# Saves depth difference features and labelings as pickles
 
 	# Processes the images from the source directory and places them into the target dir
 	# Takes exr images and creates a png for the rgb data and a binary file for the depth
