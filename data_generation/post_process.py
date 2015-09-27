@@ -96,6 +96,25 @@ class Image_processing:
 	def __init__(self, sent_scale_factor=1):
 
 		self.scale_factor = sent_scale_factor
+		
+	# Returns bounds for image processing that avoid issues with unaligned batch sizes
+	# Bounds set as None will be automatically set
+	def set_bounds(source_dir, start_index=None, end_index=None, batch_size=128):
+		# If end_index is not sent, set it to the largest file in the set
+		if not end_index:
+			end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
+			end_index = int(end_index.strip(".exr"))
+
+		# Make sure that the end index is aligned to the batch size
+		end_index = (end_index // batch_size) * batch_size
+
+		# If start_index is not sent, set it to the lowest file in the set
+		if start_index:
+			index = start_index
+		else:
+			index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))
+			
+		return start_index, end_index, batch_size
 
 	# Gets the specified channel information from an exr file and places it into a numpy array of floats
 	# Scale will change the image size by the sent number
@@ -425,7 +444,7 @@ class Image_processing:
 	# number_features is the total number of features to create
 	#
 	# window is the max offset allowable, total range will be  -1 * window to window 
-	def random_feature_list(number_features=2000, window=(100, 100)):
+	def random_feature_list(number_features=2000, window=(400, 400)):
 
 		# The list of features to create
 		feature_list = []
@@ -531,9 +550,111 @@ class Image_processing:
 		# Return the processed images
 		return processed_images
 		
-	# Processes images from the source directory into depth difference features and saves them to the destination directory
+	# Processes images from the source directory into depth difference features and saves them to the destination directory as pickles
 	#
-	# Saves depth difference features and labelings as pickles
+	# feature_list is the set of offsets to use when computing features in get_features
+	# Setting it to None will create a random list of features
+	#
+	# The depth features will be shape: (batch_size, height, width, feature_size)
+	# The labels will be of shape: (batch_size, height, width)
+	def process_depth_diff_pickles(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=128, feature_list=None, verbose=False):
+	
+		# Make sure that the bounds are acceptable
+		start_index, end_index, batch_size = set_bounds(source_dir, start_index, end_index, batch_size)
+		
+		# If no feature_list was sent, use the default random list
+		if not feature_list:
+		
+			feature_list = random_feature_list()
+
+		# Enforce path to the target directory
+		enforce_path(target_dir)
+
+		# Enforce path to the sub directories
+		enforce_path(os.path.join(target_dir, "data"))
+		enforce_path(os.path.join(target_dir, "label"))
+
+		if verbose:
+			print "Items in source directory: ", len(get_names(source_dir))
+
+			print "Start index: ", start_index
+			print "End index: ", end_index
+			print "Batch size: ", batch_size
+			print "Scale: ", scale_factor
+
+		# Get the shape of the images
+		# Need to get the header from any uncorrupted image
+		size = None
+		for name in get_names(source_dir):
+			try:
+				header = OpenEXR.InputFile(os.path.join(source_dir, name)).header()
+
+			except:
+				pass
+
+			else:
+				dw = header['dataWindow']
+				size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
+
+				break
+
+		# Create a numpy array to hold each batch of raw depth data
+		# shape (batch_size, height, width)
+		data_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])))
+		label_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])), dtype='uint8')
+
+		# Create a numpy array to hold the depth difference features
+		feature_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0]), len(feature_list)))
+
+		# Loop control
+		done = False
+
+		# Loop through all data, getting batches
+		while not done and index < end_index:
+
+			# Get the target end index
+			target_index = index + batch_size - 1
+
+			# Get the data and labels for the batch
+			try:
+				if verbose:
+					print "Getting batch: ", str(index) + "_" + str(target_index)
+
+				data_batch, label_batch = self.process_to_np(source_dir, index, target_index)
+
+			# Index went past the end index
+			except IndexError:
+				done = True
+
+			#except Exception, e:
+			#	print e
+
+			# There is a problem with one of the files, just ignore it
+			except IOError:
+				if verbose:
+					print "File corrupt: ", str(index) + "_" + str(target_index)
+
+			# The file load was successful
+			else:
+			
+				# Get the depth_features
+				feature_batch = depth_difference_batch(data_batch, feature_list)
+
+				# Fix the rgb data
+				n_label_batch = self.batch_get_labels(label_batch)
+
+				if verbose:
+					print "Saving batch: " + str(index) + "_" + str(target_index)
+
+				# Save the data_batch
+				pickle.dump(feature_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"))
+
+				# Save the label batch
+				pickle.dump(n_label_batch, open(os.path.join(target_dir, "label", str(index) + "_" + str(target_index) + ".p"), "wb"))
+
+			finally:
+				# Go to next batch
+				index += batch_size
 
 	# Processes the images from the source directory and places them into the target dir
 	# Takes exr images and creates a png for the rgb data and a binary file for the depth
