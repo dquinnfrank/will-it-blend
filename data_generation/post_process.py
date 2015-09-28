@@ -391,6 +391,7 @@ class Image_processing:
 
 	# Takes a numpy array and saves it as an image
 	# to_save is the image to be saved, must have shape: channels * width * height
+	# TODO: Redo the axis ordering
 	def save_image(self, to_save, save_name):
 
 		# Get the channels in the image
@@ -599,6 +600,11 @@ class Image_processing:
 
 				# Set the label in the label batch
 				feature_labels[image_index * n_points_per_image + point_index] = label_batch[image_index][target_pixel]
+
+		# Put an endline, because previous print has none
+		if verbose:
+
+			print ""
 
 		# Return the data and labels
 		return feature_data, feature_labels

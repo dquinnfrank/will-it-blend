@@ -4,6 +4,12 @@ import numpy as np
 
 import cPickle as pickle
 
+# Add the path to post_process
+sys.path.insert(0, "../data_generation")
+
+import post_process as pp
+im_p = pp.Image_processing
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
@@ -11,10 +17,10 @@ from sklearn.metrics import accuracy_score
 train_split = .9
 
 # Get the data
-data = pickle.load(open("/media/master/CORSAIR/depth_features/data/set_001.p", 'rb'))
+data = pickle.load(open("/media/CORSAIR/depth_features/data/set_001.p", 'rb'))
 
 # Get the labels
-labels = pickle.load(open("/media/master/CORSAIR/depth_features/label/set_001.p", 'rb'))
+labels = pickle.load(open("/media/CORSAIR/depth_features/label/set_001.p", 'rb'))
 
 # Split into training and testing
 train_data = data[int(train_split * data.shape[0]):]
@@ -39,4 +45,14 @@ print "Number of training points: ", data.shape[0]
 print "Accuracy: ", score
 
 # Load an example image
+#ex_image = pickle.load(open("/media/CORSAIR/ex_images/ex1.py", 'rb'))
 
+# Predict all of the pixels
+#ex_prediction = clf.predict(test_data)
+
+# Reorder the axis for saving
+#ex_prediction = np.expand_dims(ex_prediction, axis=0)
+#ex_prediction = np.rollaxis(ex_prediction, 2, 1)
+
+# Save the image
+#im_p.save_image(ex_prediction, "/media/CORSAIR/ex_images/ex1_prediction.jpg")
