@@ -69,11 +69,11 @@ for item_name in image_pickle_names:
 	label_batch = pickle.load(open(os.path.join(label_dir, item_name), 'rb'))
 
 	# Get the processed batches
-	data_processed, label_processed = im_p.depth_difference_set(data_batch, label_batch, rand_features)
+	data_processed, label_processed = im_p.depth_difference_set(data_batch, label_batch, rand_features, verbose = True)
 
 	# Save the set
-	pickle.dump(data_processed, open(set_name + "_" + str(item_name).zfill(5) + "_data.p", 'wb', protocol=2))
-	pickle.dump(label_processed, open(set_name + "_" + str(item_name).zfill(5) + "_label.p", 'wb', protocol=2))
+	pickle.dump(data_processed, open(set_name + "_" + str(running_index).zfill(5) + "_data.p", 'wb', protocol=2))
+	pickle.dump(label_processed, open(set_name + "_" + str(running_index).zfill(5) + "_label.p", 'wb', protocol=2))
 
 	# Increment running index
 	running_index += 1

@@ -557,7 +557,12 @@ class Image_processing:
 	#
 	# remove_non_person is the chance that a pixel that is not from a person will be ignored
 	# Since non-person pixels may be the majority in the set, this prevents them from being overwhelming
-	def depth_difference_set(self, image_batch, label_batch, feature_list, n_points_per_image = 2000, ignore_non_person = .5):
+	def depth_difference_set(self, image_batch, label_batch, feature_list, n_points_per_image = 2000, ignore_non_person = .5, verbose = False):
+
+		# Blank line for verbose printing
+		if verbose:
+
+			print ""
 
 		# Get the basic shape info
 		(n_images, height, width) = image_batch.shape
@@ -570,6 +575,12 @@ class Image_processing:
 
 		# Go through each image
 		for image_index, image in enumerate(image_batch):
+
+			# Verbose print the current image being worked on
+			if verbose:
+
+				print "\rWorking on batch index: " + str(image_index),
+				sys.stdout.flush()
 
 			# Generate the specified number of points per image
 			for point_index in range(n_points_per_image):
