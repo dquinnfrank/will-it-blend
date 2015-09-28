@@ -523,7 +523,7 @@ class Image_processing:
 	#
 	# save_name is a string that contains the full path and extension
 	# Do not include extension
-	def save_features(feature_list, save_name):
+	def save_features(self, feature_list, save_name):
 
 		# Pickle isn't portable, but it is easy
 		pickle.dump(feature_list, open(save_name, 'wb'))
@@ -534,7 +534,7 @@ class Image_processing:
 	# Returns a list of depth difference features
 	#
 	# load_name is the name of the features to load. Include path and extension 
-	def load_features(load_name):
+	def load_features(self, load_name):
 
 		# Only loads pickles right now
 		return pickle.load(open(load_name, 'rb'))
