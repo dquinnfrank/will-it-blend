@@ -99,7 +99,7 @@ class Image_processing:
 		
 	# Returns bounds for image processing that avoid issues with unaligned batch sizes
 	# Bounds set as None will be automatically set
-	def set_bounds(source_dir, start_index=None, end_index=None, batch_size=128):
+	def set_bounds(self, source_dir, start_index=None, end_index=None, batch_size=128):
 		# If end_index is not sent, set it to the largest file in the set
 		if not end_index:
 			end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
@@ -415,16 +415,16 @@ class Image_processing:
 	# target_pixel is a tuple containing the coordinates of the pixel to be accessed
 	#
 	# large_positive is the value to return if the target_pixel is off of the image
-	def depth_probe(image, target_pixel, large_positive=1000000.0):
+	def depth_probe(self, image, target_pixel, large_positive=1000000.0):
 
 		# Get image shape info
 		(height, width) = image.shape
 		
 		# Get target_pixel indexes
-		(x_index, y_index) = target_pixel
+		(h_index, w_index) = target_pixel
 
 		# Check that the target pixel is within bounds
-		if 0 <= x_index < width and 0 <= y_index < height:
+		if 0 <= h_index < height and 0 <= w_index < width:
 		# Within bounds
 
 			# Assign the target value
@@ -444,7 +444,7 @@ class Image_processing:
 	# number_features is the total number of features to create
 	#
 	# window is the max offset allowable, total range will be  -1 * window to window 
-	def random_feature_list(number_features=2000, window=(400, 400)):
+	def random_feature_list(self, number_features=2000, window=(400, 400)):
 
 		# The list of features to create
 		feature_list = []
@@ -475,7 +475,7 @@ class Image_processing:
 	# target_pixel is the pixel being classified, must be sent as coordinate pair
 	#
 	# feature_list is the feature offsets to be computed
-	def get_features(image, target_pixel, feature_list):
+	def get_features(self, image, target_pixel, feature_list):
 
 		# Get a copy of the target_pixel as a numpy array, for computations
 		target_pixel_np = np.array(target_pixel, dtype=int)
@@ -512,9 +512,62 @@ class Image_processing:
 			#print image[feature_first], "    ", image[feature_second]
 
 			# Compute the feature as given by the equation
-			feature_array[index] = depth_probe(image, feature_first) - depth_probe(image, feature_second)
+			feature_array[index] = self.depth_probe(image, feature_first) - self.depth_probe(image, feature_second)
 
 		return feature_array
+
+	# Takes a batch of images and generates a training set by randomly sampling pixels
+	#
+	# returns feature_data, feature_labels. 
+	# feature_data is a numpy array with calculated features with shape: (n_images * n_points_per_image, n_features)
+	# feature_labels correspond with the data labels and have shape: (n_images * n_points_per_image,)
+	#
+	# image_batch is a numpy array of shape (n_images, height, width)
+	# Each pixel has depth info
+	#
+	# label_batch are the corresponding labels with shape (n_images, height, width)
+	# Each pixel has the labeled body part
+	#
+	# feature_list is the features to be computed, typically from random_feature_list
+	#
+	# n_points_per_image is the number of points that will be selected in each image
+	#
+	# remove_non_person is the chance that a pixel that is not from a person will be ignored
+	# Since non-person pixels may be the majority in the set, this prevents them from being overwhelming
+	def depth_difference_set(self, image_batch, label_batch, feature_list, n_points_per_image = 2000, ignore_non_person = .5):
+
+		# Get the basic shape info
+		(n_images, height, width) = image_batch.shape
+
+		# Create the processed data batch, as float32 to save space and make it run on the GPU
+		feature_data = np.empty((n_images * n_points_per_image, len(feature_list)), dtype=np.float32)
+
+		# Create the label batch
+		feature_labels = np.empty((n_images * n_points_per_image), dtype=np.uint8)
+
+		# Go through each image
+		for image_index, image in enumerate(image_batch):
+
+			# Generate the specified number of points per image
+			for point_index in range(n_points_per_image):
+
+				# Get a random point in the image
+				target_pixel = (np.random.randint(height), np.random.randint(width))
+
+				# If the point is not a person and the random number is greater than the ignore threshold, get a new point
+				while label_batch[image_index][target_pixel] == 0 and np.random.rand() < ignore_non_person:
+
+					# Get new random point
+					target_pixel = (np.random.randint(height), np.random.randint(width))
+
+				# Get the features from the point
+				feature_data[image_index * n_points_per_image + point_index] = self.get_features(image, target_pixel, feature_list)
+
+				# Set the label in the label batch
+				feature_labels[image_index * n_points_per_image + point_index] = label_batch[image_index][target_pixel]
+
+		# Return the data and labels
+		return feature_data, feature_labels
 
 	# Takes a batch of images and returns the depth difference features for every pixel
 	#
@@ -526,7 +579,7 @@ class Image_processing:
 	# feature_list is the features to be computed, typically from random_feature_list
 	#
 	# Process 1 image by sending it with shape (1, height, width)
-	def depth_difference_batch(image_batch, feature_list):
+	def depth_difference_batch(self, image_batch, feature_list):
 
 		# Get the basic shape info
 		(n_images, height, width) = image_batch.shape
@@ -545,7 +598,7 @@ class Image_processing:
 					target_pixel = (height_index, width_index)
 
 					# Get the features for the pixel and place them into the processed images
-					processed_images[image_index][target_pixel] = get_features(image, target_pixel, feature_list)
+					processed_images[image_index][target_pixel] = self.get_features(image, target_pixel, feature_list)
 
 		# Return the processed images
 		return processed_images
