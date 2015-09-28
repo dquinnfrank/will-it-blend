@@ -1,0 +1,11 @@
+# Takes processed image pickles and makes random depth features out of them
+
+import post_process as pp
+
+import numpy as np
+
+import sys
+
+# Get the name of the source directory
+# This directory should contain sub directories: data, label
+source_root_dir = sys.argv[1]

@@ -406,7 +406,7 @@ class Image_processing:
 		save_im = PIL_Image.fromarray(im)
 		save_im.save(save_name)
 		
-		# Assigns the depth at the target pixel, or a large positive value if the index is off the image
+	# Assigns the depth at the target pixel, or a large positive value if the index is off the image
 	#
 	# returns the depth probe as defined in microsoft paper
 	#
@@ -515,6 +515,29 @@ class Image_processing:
 			feature_array[index] = self.depth_probe(image, feature_first) - self.depth_probe(image, feature_second)
 
 		return feature_array
+
+	# Saves the feature list for later loading
+	# TODO: make this more portable, only saves pickles right now
+	#
+	# feature_list is a list of depth difference features
+	#
+	# save_name is a string that contains the full path and extension
+	# Do not include extension
+	def save_features(feature_list, save_name):
+
+		# Pickle isn't portable, but it is easy
+		pickle.dump(feature_list, open(save_name, 'wb'))
+
+	# Loads a list of features suitable for use in depth difference computations
+	# TODO: make this load a more portable format, going to be defined in save_features
+	#
+	# Returns a list of depth difference features
+	#
+	# load_name is the name of the features to load. Include path and extension 
+	def load_features(load_name):
+
+		# Only loads pickles right now
+		return pickle.load(open(load_name, 'rb'))
 
 	# Takes a batch of images and generates a training set by randomly sampling pixels
 	#
