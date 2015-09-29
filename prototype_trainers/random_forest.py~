@@ -51,4 +51,8 @@ print "Accuracy: ", score
 #ex_prediction = clf.predict(test_data)
 
 # Reorder the axis for saving
+#ex_prediction = np.expand_dims(ex_prediction, axis=0)
+#ex_prediction = np.rollaxis(ex_prediction, 2, 1)
 
+# Save the image
+#im_p.save_image(ex_prediction, "/media/CORSAIR/ex_images/ex1_prediction.jpg")
