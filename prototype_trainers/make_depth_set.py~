@@ -43,7 +43,7 @@ image_pickle_names = pp.get_names(data_dir)
 rand_features = im_p.random_feature_list()
 
 # Save the features for future use
-im_p.save_features(rand_features, set_name + "_feature_list.p")
+im_p.save_features(rand_features, set_name + "feature_list.p")
 
 # Get the batch size of the images
 image_range = image_pickle_names[0].strip(".p").split("_")

@@ -4,6 +4,9 @@ import numpy as np
 
 import cPickle as pickle
 
+import sys
+import os
+
 # Add the path to post_process
 sys.path.insert(0, "../data_generation")
 
@@ -11,10 +14,7 @@ import post_process as pp
 im_p = pp.Image_processing
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
-
-import sys
-import os
+#from sklearn.metrics import accuracy_score
 
 class Random_forest:
 
@@ -45,14 +45,14 @@ class Random_forest:
 	# Make sure to save the old array, if it is needed
 	#
 	# Returns the new array
-	def rectify_array(original_array):
+	def rectify_array(self, original_array):
 
 		# Get the original shape
 		original_shape = original_array.shape
 
 		# Get the product of all dimensions, except the last
 		product = 1
-		for index in range(len(original_shape - 1)):
+		for index in range(len(original_shape) - 1):
 
 			product *= original_shape[index]
 
@@ -66,18 +66,20 @@ class Random_forest:
 	def train_batch(self, train_data, train_label):
 
 		# If the data isn't of shape (x, features), flatten it
-		train_data = self.rectify_data(train_data)
+		train_data = self.rectify_array(train_data)
 
 		# Labels must be 1-D
 		train_label = train_label.flatten()
 
 		# Train the forest
-		self.classifier.fit(train_data, train_labels)
+		print train_data.shape
+		print train_label.shape
+		self.classifier.fit(train_data, train_label)
 
 	# Trains on a bunch of pickled data
 	#
 	# source_dir is the directory that contains data and label sub directories
-	def train(self, source_dir):
+	def train(self, source_dir, save_name=None):
 
 		# Set the data and label directories
 		data_dir = os.path.join(source_dir, "data")
@@ -87,7 +89,7 @@ class Random_forest:
 		pickle_names = pp.get_names(data_dir)
 
 		# Go through each item
-		for item_name in pickle_names:
+		for item_idex, item_name in enumerate(pickle_names):
 
 			# Get the data
 			data_batch = pickle.load(open(os.path.join(data_dir, item_name), 'rb'))
@@ -97,6 +99,20 @@ class Random_forest:
 
 			# Train the forest
 			self.train_batch(data_batch, label_batch)
+
+			# Save after every 5th batch, if save_name is set
+			self.save_model(save_name.split('.')[0] + "_temp.p")
+
+		# Save the model once done
+		self.save_model(save_name)
+
+	# Saves the model to a pickle for later use
+	#
+	# Save name is the path and name to save the model as
+	def save_model(self, save_name):
+
+		# Pickle it
+		pickle.dump(self.classifier, open(save_name, 'wb'))
 
 	# Predicts a batch of data
 	#
@@ -125,7 +141,7 @@ class Random_forest:
 
 		# Return the predictions
 		return predictions
-
+	"""
 	# Tests the classifier and shows the accuracy
 	# Will show the accuracy for each pickle in the sub folders
 	#
@@ -156,54 +172,53 @@ class Random_forest:
 
 			# Show the score
 			print "Accuracy: ", score
+	"""
 
 # Run the system if this is main
-#if __name__ == "__main__":
+if __name__ == "__main__":
 
-	# Show use if 
+	# Show use if no arguments have been sent
+	if len(sys.argv) < 2:
 
-"""
-# The percentage to be used for training, the remaining data will be used for testing
-#train_split = .9
+		print "Usage: random_forest.py data_source_dir test_source_dir save_name ex_image_name"
 
-# Get the data
-data = pickle.load(open("/media/CORSAIR/depth_features/data/set_001.p", 'rb'))
+		sys.exit(1)
 
-# Get the labels
-labels = pickle.load(open("/media/CORSAIR/depth_features/label/set_001.p", 'rb'))
+	# Argument defaults
+	test_source_dir = None
+	save_name = None
+	ex_image_name = None
 
-# Split into training and testing
-train_data = data[int(train_split * data.shape[0]):]
-train_labels = labels[int(train_split * labels.shape[0]):]
+	# Source directory is required
+	data_source_dir = sys.argv[1]
 
-test_data = data[:int(train_split * data.shape[0])]
-test_labels = labels[:int(train_split * labels.shape[0])]
+	# Testing is optional
+	if len(sys.argv) > 2:
 
-# Create the random forest with parameters similar to the microsoft paper
-clf = RandomForestClassifier(n_estimators=3, criterion='entropy', max_depth=20)
+		test_source_dir = sys.argv[2]
 
-# Train the forest
-clf.fit(train_data, train_labels)
+	# Saving is optional
+	if len(sys.argv) > 3:
 
-# Get the score
-clf_predict = clf.predict(test_data)
-score = accuracy_score(test_labels, clf_predict)
+		save_name = sys.argv[3]
 
-# Show score and other info
-print "Random forest"
-print "Number of training points: ", data.shape[0]
-print "Accuracy: ", score
+	# Example image is optional
+	if len(sys.argv) > 4:
 
-# Load an example image
-#ex_image = pickle.load(open("/media/CORSAIR/ex_images/ex1.py", 'rb'))
+		ex_image_name = sys.argv[3]
 
-# Predict all of the pixels
-#ex_prediction = clf.predict(test_data)
+	# Create the forest trainer
+	pixel_classifier = Random_forest()
 
-# Reorder the axis for saving
-#ex_prediction = np.expand_dims(ex_prediction, axis=0)
-#ex_prediction = np.rollaxis(ex_prediction, 2, 1)
+	# Train the forest
+	pixel_classifier.train(data_source_dir, save_name=save_name)
 
-# Save the image
-#im_p.save_image(ex_prediction, "/media/CORSAIR/ex_images/ex1_prediction.jpg")
-"""
+	# Test the forest
+	#if test_source_dir:
+
+		#pixel_classifier.test(test_source_dir)
+
+	# Get an example image
+	if ex_image_name:
+
+		ex_image = pixel_classifier.predict(ex_image_name)
