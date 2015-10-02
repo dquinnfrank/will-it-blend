@@ -19,7 +19,24 @@ from keras.optimizers import SGD
 
 class Neural_net:
 
-	def __init__(self):
+	# Creates the model
+	#
+	# load_name is the name of a model to be loaded
+	# WARNING: not currently impemented
+	def __init__(self, load_name=None, hidden_nodes=500):
+
+		# If load name is sent, load the model
+		# TODO: make this work
+		#if load_name:
+		if False:
+
+			pass
+
+		# Create a new network
+		else:
+
+			# Create the model container
+			self.classifier = Sequential()
 
 		pass
 
