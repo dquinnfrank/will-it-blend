@@ -625,7 +625,7 @@ class Image_processing:
 		(n_images, height, width) = image_batch.shape
 
 		# Create the new batch
-		processed_images = np.empty(image_batch.shape + (len(feature_list),))
+		processed_images = np.empty(image_batch.shape + (len(feature_list),), dtype=np.float32)
 
 		# Go through each image
 		for image_index, image in enumerate(image_batch):
@@ -653,12 +653,12 @@ class Image_processing:
 	def process_depth_diff_pickles(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=128, feature_list=None, verbose=False):
 	
 		# Make sure that the bounds are acceptable
-		start_index, end_index, batch_size = set_bounds(source_dir, start_index, end_index, batch_size)
+		start_index, end_index, batch_size = self.set_bounds(source_dir, start_index, end_index, batch_size)
 		
 		# If no feature_list was sent, use the default random list
 		if not feature_list:
 		
-			feature_list = random_feature_list()
+			feature_list = self.random_feature_list()
 
 		# Enforce path to the target directory
 		enforce_path(target_dir)
@@ -673,7 +673,7 @@ class Image_processing:
 			print "Start index: ", start_index
 			print "End index: ", end_index
 			print "Batch size: ", batch_size
-			print "Scale: ", scale_factor
+			print "Scale: ", self.scale_factor
 
 		# Get the shape of the images
 		# Need to get the header from any uncorrupted image
@@ -693,16 +693,17 @@ class Image_processing:
 
 		# Create a numpy array to hold each batch of raw depth data
 		# shape (batch_size, height, width)
-		data_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])))
-		label_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0])), dtype='uint8')
+		data_batch = np.empty((batch_size, int(self.scale_factor * size[1]), int(self.scale_factor * size[0])))
+		label_batch = np.empty((batch_size, int(self.scale_factor * size[1]), int(self.scale_factor * size[0])), dtype='uint8')
 
 		# Create a numpy array to hold the depth difference features
-		feature_batch = np.empty((batch_size, int(scale_factor * size[1]), int(scale_factor * size[0]), len(feature_list)))
+		feature_batch = np.empty((batch_size, int(self.scale_factor * size[1]), int(self.scale_factor * size[0]), len(feature_list)))
 
 		# Loop control
 		done = False
 
 		# Loop through all data, getting batches
+		index = 0
 		while not done and index < end_index:
 
 			# Get the target end index
@@ -731,7 +732,7 @@ class Image_processing:
 			else:
 			
 				# Get the depth_features
-				feature_batch = depth_difference_batch(data_batch, feature_list)
+				feature_batch = self.depth_difference_batch(data_batch, feature_list)
 
 				# Fix the rgb data
 				n_label_batch = self.batch_get_labels(label_batch)
@@ -802,10 +803,10 @@ class Image_processing:
 		size = (dw.max.x - dw.min.x + 1, dw.max.y - dw.min.y + 1)
 
 		# Create the numpy array for the RGB data
-		RGB_data = np.empty((len(to_process), 3, int(scale_factor * size[1]), int(scale_factor * size[0])), dtype=np.uint8)
+		RGB_data = np.empty((len(to_process), 3, int(self.scale_factor * size[1]), int(self.scale_factor * size[0])), dtype=np.uint8)
 
 		# Create the numpy array for the Depth data
-		Depth_data = np.empty((len(to_process), 1, int(scale_factor * size[1]), int(scale_factor * size[0])))
+		Depth_data = np.empty((len(to_process), 1, int(self.scale_factor * size[1]), int(self.scale_factor * size[0])))
 
 		# Get a list of all files in the source dir and iterate through them
 		for index, exr_name in enumerate(to_process):
