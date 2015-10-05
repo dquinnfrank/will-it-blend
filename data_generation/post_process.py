@@ -558,7 +558,7 @@ class Image_processing:
 	#
 	# remove_non_person is the chance that a pixel that is not from a person will be ignored
 	# Since non-person pixels may be the majority in the set, this prevents them from being overwhelming
-	def depth_difference_set(self, image_batch, label_batch, feature_list, n_points_per_image = 2000, ignore_non_person = .5, verbose = False):
+	def depth_difference_set(self, image_batch, label_batch, feature_list = None, n_points_per_image = 2000, ignore_non_person = .5, verbose = False):
 
 		# Blank line for verbose printing
 		if verbose:
@@ -619,7 +619,12 @@ class Image_processing:
 	# feature_list is the features to be computed, typically from random_feature_list
 	#
 	# Process 1 image by sending it with shape (1, height, width)
-	def depth_difference_batch(self, image_batch, feature_list):
+	def depth_difference_batch(self, image_batch, feature_list, verbose=False):
+
+		# Verbose new line
+		if verbose:
+
+			print ""
 
 		# Get the basic shape info
 		(n_images, height, width) = image_batch.shape
@@ -634,16 +639,29 @@ class Image_processing:
 			for height_index in range(height):
 				for width_index in range(width):
 
+					# Verbose progress update
+					if verbose:
+
+						print "\rImage index: ", image_index, " Height index: ", height_index, " Width index: ", width_index,
+						sys.stdout.flush()
+
 					# Set the target pixel value
 					target_pixel = (height_index, width_index)
 
 					# Get the features for the pixel and place them into the processed images
 					processed_images[image_index][target_pixel] = self.get_features(image, target_pixel, feature_list)
 
+		# Verbose finish line
+		if verbose:
+
+			print ""
+
 		# Return the processed images
 		return processed_images
 		
 	# Processes images from the source directory into depth difference features and saves them to the destination directory as pickles
+	#
+	# Returns feature_list, for future use
 	#
 	# feature_list is the set of offsets to use when computing features in get_features
 	# Setting it to None will create a random list of features
@@ -666,6 +684,9 @@ class Image_processing:
 		# Enforce path to the sub directories
 		enforce_path(os.path.join(target_dir, "data"))
 		enforce_path(os.path.join(target_dir, "label"))
+
+		# Save the feature list
+		self.save_features(feature_list, os.path.join(target_dir, "feature_list.p"))
 
 		if verbose:
 			print "Items in source directory: ", len(get_names(source_dir))
@@ -732,7 +753,7 @@ class Image_processing:
 			else:
 			
 				# Get the depth_features
-				feature_batch = self.depth_difference_batch(data_batch, feature_list)
+				feature_batch = self.depth_difference_batch(data_batch, feature_list, verbose=verbose)
 
 				# Fix the rgb data
 				n_label_batch = self.batch_get_labels(label_batch)
@@ -741,14 +762,35 @@ class Image_processing:
 					print "Saving batch: " + str(index) + "_" + str(target_index)
 
 				# Save the data_batch
-				pickle.dump(feature_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"))
+				pickle.dump(feature_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"), protocol=2)
 
 				# Save the label batch
-				pickle.dump(n_label_batch, open(os.path.join(target_dir, "label", str(index) + "_" + str(target_index) + ".p"), "wb"))
+				pickle.dump(n_label_batch, open(os.path.join(target_dir, "label", str(index) + "_" + str(target_index) + ".p"), "wb"), protocol=2)
 
 			finally:
 				# Go to next batch
 				index += batch_size
+
+		return feature_list
+
+	# Makes example images
+	#
+	# source_dir is the directory that includes the exr images
+	#
+	# target_dir is the directory for the new images, will be enforced
+	#
+	# feature_list is the features to be extracted from the image
+	#
+	# verbose controls output
+	def make_ex_images(self, source_dir, target_dir, feature_list, verbose = False):
+
+		# Verbose newline
+		if verbose:
+
+			print ""
+
+		# Call with batch size of 1, to make each image stand alone
+		self.process_depth_diff_pickles(source_dir, target_dir, batch_size = 1, feature_list = feature_list, verbose = verbose)
 
 	# Processes the images from the source directory and places them into the target dir
 	# Takes exr images and creates a png for the rgb data and a binary file for the depth
