@@ -230,6 +230,13 @@ if __name__ == "__main__":
 
 		ex_image_name = sys.argv[3]
 
+	# Show the configuration
+	print "Configuration"
+	print "Training data from: ", data_source_dir
+	print "Testing data from: ", test_source_dir
+	print "Save name: ", save_name
+	print "Example image: ", ex_image_name
+
 	# Create the forest trainer
 	pixel_classifier = Random_forest()
 
