@@ -109,10 +109,14 @@ class Random_forest:
 			self.train_batch(data_batch, label_batch)
 
 			# Save after every 5th batch, if save_name is set
-			self.save_model(save_name.split('.')[0] + "_temp." + save_name.split('.')[1])
+			if save_name:
+
+				self.save_model(save_name.split('.')[0] + "_temp." + save_name.split('.')[1])
 
 		# Save the model once done
-		self.save_model(save_name)
+		if save_name:
+
+			self.save_model(save_name)
 
 	# Saves the model to a pickle for later use
 	#

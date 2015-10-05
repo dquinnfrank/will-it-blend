@@ -228,7 +228,7 @@ if __name__ == "__main__":
 	# Example image is optional
 	if len(sys.argv) > 4:
 
-		ex_image_name = sys.argv[3]
+		ex_image_name = sys.argv[4]
 
 	# Show the configuration
 	print "Configuration"
