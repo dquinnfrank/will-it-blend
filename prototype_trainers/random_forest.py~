@@ -158,6 +158,11 @@ class Random_forest:
 	# source_dir is a directory that contains data and label sub folders
 	def test(self, source_dir, verbose=False):
 
+		# Verbose line
+		if verbose:
+
+			print ""
+
 		# Set the data and label directories
 		data_dir = os.path.join(source_dir, "data")
 		label_dir = os.path.join(source_dir, "label")

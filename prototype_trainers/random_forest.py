@@ -42,7 +42,7 @@ class Random_forest:
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
 	# Can have any number of x, y dimensions, last dimension is considered to be the features
-	# Make sure to save the old array, if it is needed
+	# Make sure to save the old array shape, if it is needed
 	#
 	# Returns the new array
 	def rectify_array(self, original_array):
