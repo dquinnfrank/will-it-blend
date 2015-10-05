@@ -130,6 +130,8 @@ class Random_forest:
 	# returns the predicted labels for the data in the same shape that it was sent
 	def predict(self, check_data):
 
+		print check_data
+
 		# If check_data is a string, open it as a pickle
 		if isinstance(check_data, str):
 
@@ -228,6 +230,13 @@ if __name__ == "__main__":
 
 		ex_image_name = sys.argv[3]
 
+	# Show the configuration
+	print "Configuration"
+	print "Training data from: ", data_source_dir
+	print "Testing data from: ", test_source_dir
+	print "Save name: ", save_name
+	print "Example image: ", ex_image_name
+
 	# Create the forest trainer
 	pixel_classifier = Random_forest()
 
@@ -242,4 +251,7 @@ if __name__ == "__main__":
 	# Get an example image
 	if ex_image_name:
 
-		ex_image = pixel_classifier.predict(ex_image_name)
+		# Load the example image
+		#ex_image = pickle.load(open(ex_image_name, 'rb'))
+
+		predicted_image = pixel_classifier.predict(ex_image_name)

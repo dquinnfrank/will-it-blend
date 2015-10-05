@@ -49,11 +49,11 @@ def get_names(source_dir, start_index=None, end_index=None, randomize=False):
 	to_process = sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ])
 
 	# Only include items after the start threshold
-	if start_index:
+	if start_index is not None:
 		to_process = sorted([v for v in to_process if int(v.strip(".exr")) >= start_index ])
 
 	# Only include items before the end threshold
-	if end_index:
+	if end_index is not None:
 		to_process = sorted([v for v in to_process if int(v.strip(".exr")) <= end_index ])
 
 	# Randomize names, if selected
@@ -621,9 +621,10 @@ class Image_processing:
 	# Process 1 image by sending it with shape (1, height, width)
 	def depth_difference_batch(self, image_batch, feature_list, verbose=False):
 
-		# Verbose new line
+		# Verbose info
 		if verbose:
 
+			print "image_batch shape", image_batch.shape
 			print ""
 
 		# Get the basic shape info
@@ -642,7 +643,7 @@ class Image_processing:
 					# Verbose progress update
 					if verbose:
 
-						print "\rImage index: ", image_index, " Height index: ", height_index, " Width index: ", width_index,
+						print "\rImage index: ", image_index, " Height index: ", height_index, " Width index: ", width_index, "     ",
 						sys.stdout.flush()
 
 					# Set the target pixel value
@@ -699,7 +700,7 @@ class Image_processing:
 		# Get the shape of the images
 		# Need to get the header from any uncorrupted image
 		size = None
-		for name in get_names(source_dir):
+		for name in get_names(source_dir, start_index=start_index, end_index=end_index):
 			try:
 				header = OpenEXR.InputFile(os.path.join(source_dir, name)).header()
 
@@ -751,6 +752,9 @@ class Image_processing:
 
 			# The file load was successful
 			else:
+
+				# If the data has only 2 dims, it will need to be expanded
+				data_batch = np.expand_dims(data_batch, axis=0)
 			
 				# Get the depth_features
 				feature_batch = self.depth_difference_batch(data_batch, feature_list, verbose=verbose)
@@ -834,6 +838,7 @@ class Image_processing:
 	# Depth_data (n_images, height, width) : the depth information of the images
 	# If start_index is specified, process will only process files that are higher than the sent value
 	# If end_index is specified, process will only process files that are lower than the sent value
+	# TODO: Fix the squeezing at the end
 	def process_to_np(self, source_dir, start_index=None, end_index=None):
 
 		# Get the list of names to process

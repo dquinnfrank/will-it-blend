@@ -42,7 +42,7 @@ class Random_forest:
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
 	# Can have any number of x, y dimensions, last dimension is considered to be the features
-	# Make sure to save the old array, if it is needed
+	# Make sure to save the old array shape, if it is needed
 	#
 	# Returns the new array
 	def rectify_array(self, original_array):
@@ -129,6 +129,8 @@ class Random_forest:
 	#
 	# returns the predicted labels for the data in the same shape that it was sent
 	def predict(self, check_data):
+
+		print check_data
 
 		# If check_data is a string, open it as a pickle
 		if isinstance(check_data, str):
@@ -242,4 +244,7 @@ if __name__ == "__main__":
 	# Get an example image
 	if ex_image_name:
 
-		ex_image = pixel_classifier.predict(ex_image_name)
+		# Load the example image
+		#ex_image = pickle.load(open(ex_image_name, 'rb'))
+
+		predicted_image = pixel_classifier.predict(ex_image_name)
