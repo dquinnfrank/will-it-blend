@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, "../data_generation")
 
 import post_process as pp
-im_p = pp.Image_processing
+im_p = pp.Image_processing()
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
@@ -25,6 +25,8 @@ class Random_forest:
 	# Takes the parameters for the random forest, see scikit learn documentation for details, only used if load_name is None
 	# http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html#sklearn.ensemble.RandomForestClassifier
 	# Defaults to parameters similar to the one in the Microsoft paper
+	#
+	# TODO: use @classmethod instead of splitting arguments
 	def __init__(self, load_name=None, n_estimators=3, criterion='entropy', max_depth=20):
 
 		# If a load_name has been set, load the classifier from the pickle
@@ -134,7 +136,7 @@ class Random_forest:
 	# returns the predicted labels for the data in the same shape that it was sent
 	def predict(self, check_data):
 
-		print check_data
+		#print check_data
 
 		# If check_data is a string, open it as a pickle
 		if isinstance(check_data, str):
@@ -207,7 +209,7 @@ if __name__ == "__main__":
 	# Show use if no arguments have been sent
 	if len(sys.argv) < 2:
 
-		print "Usage: random_forest.py data_source_dir test_source_dir save_name ex_image_name"
+		print "Usage: random_forest.py data_source_dir test_source_dir save_name ex_image_dir"
 
 		sys.exit(1)
 
@@ -229,17 +231,17 @@ if __name__ == "__main__":
 
 		save_name = sys.argv[3]
 
-	# Example image is optional
+	# Example images are optional
 	if len(sys.argv) > 4:
 
-		ex_image_name = sys.argv[4]
+		ex_image_dir = sys.argv[4]
 
 	# Show the configuration
 	print "Configuration"
 	print "Training data from: ", data_source_dir
 	print "Testing data from: ", test_source_dir
 	print "Save name: ", save_name
-	print "Example image: ", ex_image_name
+	print "Example images from: ", ex_image_dir
 
 	# Create the forest trainer
 	pixel_classifier = Random_forest()
@@ -252,10 +254,26 @@ if __name__ == "__main__":
 
 		pixel_classifier.test(test_source_dir, verbose=True)
 
-	# Get an example image
-	if ex_image_name:
+	# Get an example images
+	#if ex_image_dir:
 
-		# Load the example image
-		#ex_image = pickle.load(open(ex_image_name, 'rb'))
+	# Manually load a example image
+	first_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_0.p", 'rb'))
+	second_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_1.p", 'rb'))
 
-		predicted_image = pixel_classifier.predict(ex_image_name)
+	# Put them together to make the actual image
+	full_image = np.append(first_half, second_half, axis=3)
+
+	# Get the predicted image
+	#predicted_image = pixel_classifier.predict(ex_image_name)
+	predicted_image = pixel_classifier.predict(full_image)
+
+	# Turn the predictions into an image
+	view_image = im_p.get_pix_vals(np.squeeze(predicted_image))
+
+	# Reorder the axis to (channels, height, width)
+	view_image = np.rollaxis(view_image, 2)
+	#view_image = np.rollaxis(view_image, 2, 1)
+
+	# Save the image
+	im_p.save_image(view_image, "check_random_forest_ex.jpg")

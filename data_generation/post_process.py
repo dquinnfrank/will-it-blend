@@ -200,10 +200,10 @@ class Image_processing:
 		return labels
 
 	# Assigns a pixel value based on the label
-	def get_pix_vals(self, label_array):
+	def get_pix_vals(self, sent_label_array):
 
 		# Make sure that label array is ints
-		label_array = label_array.astype(np.uint8)
+		label_array = sent_label_array.astype(np.uint8)
 
 		# Create a new image
 		new_image = np.empty((label_array.shape[0], label_array.shape[1], 3), dtype=np.uint8)
@@ -624,7 +624,6 @@ class Image_processing:
 		# Verbose info
 		if verbose:
 
-			print "image_batch shape", image_batch.shape
 			print ""
 
 		# Get the basic shape info
@@ -643,7 +642,7 @@ class Image_processing:
 					# Verbose progress update
 					if verbose:
 
-						print "\rImage index: ", image_index, " Height index: ", height_index, " Width index: ", width_index, "     ",
+						print "\rImage index: ", image_index, " Height index: ", height_index, " Width index: ", width_index,
 						sys.stdout.flush()
 
 					# Set the target pixel value
@@ -669,7 +668,9 @@ class Image_processing:
 	#
 	# The depth features will be shape: (batch_size, height, width, feature_size)
 	# The labels will be of shape: (batch_size, height, width)
-	def process_depth_diff_pickles(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=128, feature_list=None, verbose=False):
+	# TODO: fix the pickling issues
+	# WARNING: Only call with batch_size = 1
+	def process_depth_diff_pickles(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=1, feature_list=None, verbose=False):
 	
 		# Make sure that the bounds are acceptable
 		start_index, end_index, batch_size = self.set_bounds(source_dir, start_index, end_index, batch_size)
@@ -754,7 +755,8 @@ class Image_processing:
 			else:
 
 				# If the data has only 2 dims, it will need to be expanded
-				data_batch = np.expand_dims(data_batch, axis=0)
+				while len(data_batch.shape) <= 2:
+					data_batch = np.expand_dims(data_batch, axis=0)
 			
 				# Get the depth_features
 				feature_batch = self.depth_difference_batch(data_batch, feature_list, verbose=verbose)
@@ -765,8 +767,13 @@ class Image_processing:
 				if verbose:
 					print "Saving batch: " + str(index) + "_" + str(target_index)
 
-				# Save the data_batch
-				pickle.dump(feature_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"), protocol=2)
+				# Save the data_batch in 2 parts due to pickling limits
+				divided = np.split(feature_batch, 2, axis=3)
+				first_half = divided[0]
+				second_half = divided[1]
+				pickle.dump(first_half, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + "_0.p"), "wb"), protocol=2)
+				pickle.dump(second_half, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + "_1.p"), "wb"), protocol=2)
+				#pickle.dump(feature_batch, open(os.path.join(target_dir, "data", str(index) + "_" + str(target_index) + ".p"), "wb"), protocol=2)
 
 				# Save the label batch
 				pickle.dump(n_label_batch, open(os.path.join(target_dir, "label", str(index) + "_" + str(target_index) + ".p"), "wb"), protocol=2)
