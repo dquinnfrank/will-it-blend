@@ -793,7 +793,7 @@ class Image_processing:
 	# feature_list is the features to be extracted from the image
 	#
 	# verbose controls output
-	def make_ex_images(self, source_dir, target_dir, feature_list, verbose = False):
+	def make_ex_images(self, source_dir, target_dir, feature_list, start_index = None, end_index= None, verbose = False):
 
 		# Verbose newline
 		if verbose:
@@ -801,7 +801,7 @@ class Image_processing:
 			print ""
 
 		# Call with batch size of 1, to make each image stand alone
-		self.process_depth_diff_pickles(source_dir, target_dir, batch_size = 1, feature_list = feature_list, verbose = verbose)
+		self.process_depth_diff_pickles(source_dir, target_dir, start_index = start_index, end_index = end_index, batch_size = 1, feature_list = feature_list, verbose = verbose)
 
 	# Processes the images from the source directory and places them into the target dir
 	# Takes exr images and creates a png for the rgb data and a binary file for the depth
