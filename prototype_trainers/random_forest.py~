@@ -275,7 +275,5 @@ if __name__ == "__main__":
 	view_image = np.rollaxis(view_image, 2)
 	#view_image = np.rollaxis(view_image, 2, 1)
 
-	print view_image.shape
-	print view_image.dtype
 	# Save the image
 	im_p.save_image(view_image, "check_random_forest_ex.jpg")

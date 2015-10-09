@@ -101,7 +101,7 @@ class Image_processing:
 	# Bounds set as None will be automatically set
 	def set_bounds(self, source_dir, start_index=None, end_index=None, batch_size=128):
 		# If end_index is not sent, set it to the largest file in the set
-		if not end_index:
+		if end_index is not None:
 			end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
 			end_index = int(end_index.strip(".exr"))
 
@@ -109,7 +109,7 @@ class Image_processing:
 		end_index = (end_index // batch_size) * batch_size
 
 		# If start_index is not sent, set it to the lowest file in the set
-		if start_index:
+		if start_index is None:
 			index = start_index
 		else:
 			index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))

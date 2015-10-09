@@ -18,6 +18,10 @@ from sklearn.metrics import accuracy_score
 
 class Random_forest:
 
+	# This tracks if the forest has been trained already
+	# Should only be False when it is being trained for the first time
+	warm_start = False
+
 	# Creates the random forest
 	#
 	# load_name is a name of a pickle containing a random forest classifier, if it is None then a new random_forest will be created with the other parameters
@@ -34,6 +38,9 @@ class Random_forest:
 
 			# Load the classifier
 			self.classifier = pickle.load(open(load_name, 'rb'))
+
+			# Set the warm start to true
+			warm_start = True
 
 		# Create a new forest
 		else:
@@ -74,7 +81,7 @@ class Random_forest:
 		train_label = train_label.flatten()
 
 		# Train the forest
-		self.classifier.fit(train_data, train_label)
+		self.classifier.fit(train_data, train_label, warm_start = self.warm_start)
 
 	# Trains on a bunch of pickled data
 	#
@@ -109,6 +116,9 @@ class Random_forest:
 
 			# Train the forest
 			self.train_batch(data_batch, label_batch)
+
+			# Set the warm_start flag, since the forest has been trained now
+			self.warm_start = True
 
 			# Save after every 5th batch, if save_name is set
 			if save_name:

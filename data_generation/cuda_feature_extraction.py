@@ -1,4 +1,5 @@
 import sys
+import cPickle as pickle
 
 import numpy as np
 
@@ -13,12 +14,12 @@ import post_process as pp
 im_p = pp.Image_processing()
 
 # The cuda function to run the feature extraction
-feature_extractor = """
+feature_extractor_template = """
 __global__ void DepthDifference(float* source_image, float* computed_features, int* first_offset, int* second_offset)
 {
 	// TEMP MANUAL SET
-	int bound_x = 480;
-	int bound_y = 640;
+	//int bound_x = 480;
+	//int bound_y = 640;
 
 	// The value that gets assigned to pixels off of the image
 	float large_positive = 1000000;
@@ -41,10 +42,10 @@ __global__ void DepthDifference(float* source_image, float* computed_features, i
 	int col_location = blockIdx.x * blockDim.x + threadIdx.x;
 
 	// Exit if this is out of bounds
-	if(row_location > bound_y || col_location > bound_x) return;
+	if(row_location > %(BOUND_Y)s || col_location > %(BOUND_X)s) return;
 
 	// Get the depth at the pixel
-	depth_at = source_image[row_location * bound_y + col_location];
+	depth_at = source_image[row_location * %(BOUND_Y)s + col_location];
 
 	// Get the offsets, normalized to the depth of the center pixel
 	first_target_x = first_offset[0] / depth_at;	
@@ -56,7 +57,7 @@ __global__ void DepthDifference(float* source_image, float* computed_features, i
 	// Depth probe the target locations
 
 	// First feature offset
-	if(first_target_x < 0 || first_target_x > bound_x || first_target_y < 0 || first_target_y > bound_y)
+	if(first_target_x < 0 || first_target_x > %(BOUND_X)s || first_target_y < 0 || first_target_y > %(BOUND_Y)s)
 	// Targets that are off of the image get a large positive value
 	{
 		depth_first = large_positive;
@@ -64,11 +65,11 @@ __global__ void DepthDifference(float* source_image, float* computed_features, i
 
 	else
 	{
-		depth_first = source_image[first_target_x * bound_y + first_target_y];
+		depth_first = source_image[first_target_x * %(BOUND_Y)s + first_target_y];
 	}
 
 	// Second feature offset
-	if(second_target_x < 0 || second_target_x > bound_x || second_target_y < 0 || second_target_y > bound_y)
+	if(second_target_x < 0 || second_target_x > %(BOUND_X)s || second_target_y < 0 || second_target_y > %(BOUND_Y)s)
 	// Targets that are off of the image get a large positive value
 	{
 		depth_second = large_positive;
@@ -76,11 +77,11 @@ __global__ void DepthDifference(float* source_image, float* computed_features, i
 
 	else
 	{
-		depth_second = source_image[second_target_x * bound_y + second_target_y];
+		depth_second = source_image[second_target_x * %(BOUND_Y)s + second_target_y];
 	}
 
 	// Get the difference between the locations and save it into the computed features array, at the location of this thread
-	computed_features[row_location * bound_y + col_location] = depth_first - depth_second;
+	computed_features[row_location * %(BOUND_Y)s + col_location] = depth_first - depth_second;
 }
 """
 
@@ -110,6 +111,12 @@ num_tiles = 50
 # Act as if the image is square and make enough tiles to cover it
 tile_size = int(np.ceil(max(height, width) / float(num_tiles)))
 
+# Set the constants
+feature_extractor = feature_extractor_template % {
+	'BOUND_X' : width,
+	'BOUND_Y' : height
+	}
+
 # Compile the cuda code
 compiled = compiler.SourceModule(feature_extractor)
 
@@ -119,4 +126,13 @@ get_features_gpu = compiled.get_function("DepthDifference")
 # Compute the features
 print num_tiles
 print tile_size
-get_features_gpu(test_image_gpu, result, manual_feature_first, manual_feature_second, grid=(10, 10), block=(10, 10, 1),)
+get_features_gpu(test_image_gpu, result, manual_feature_first, manual_feature_second, grid=(num_tiles, num_tiles), block=(tile_size, tile_size, 2),)
+
+# Get the data back into a numpy array
+result_numpy = np.array(result)
+
+# Save the data
+pickle.dump(result_numpy, open("result_000000000002.p", 'wb'))
+
+# Compute using the current method
+existing_result = im_p.depth_difference_batch(np.expand_dims(test_image, axis=0), [(0, 400),(-300, 200)])
