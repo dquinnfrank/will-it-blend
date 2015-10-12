@@ -17,10 +17,6 @@ im_p = pp.Image_processing()
 feature_extractor_template = """
 __global__ void DepthDifference(float* source_image, float* computed_features, int* first_offset, int* second_offset)
 {
-	// TEMP MANUAL SET
-	//int bound_x = 480;
-	//int bound_y = 640;
-
 	// The value that gets assigned to pixels off of the image
 	float large_positive = 1000000;
 
@@ -86,7 +82,8 @@ __global__ void DepthDifference(float* source_image, float* computed_features, i
 """
 
 # The name of the image to test
-exr_file_name = "/home/master/ex_images/000000000002.exr"
+#exr_file_name = "/home/master/ex_images/000000000002.exr"
+exr_file_name = "/media/master/DAVID_SSD/occulsion_data/example_images/000000000000.exr"
 
 # Manually set a feature to test
 manual_feature_first = gpuarray.to_gpu(np.array([0, 400], dtype=np.uint8))
@@ -94,6 +91,11 @@ manual_feature_second = gpuarray.to_gpu(np.array([-300, 200], dtype=np.uint8))
 
 # Load a test image
 test_image = np.squeeze(im_p.get_channels(exr_file_name, "Z").astype(np.float32))
+
+# Treshold the image to stop nans
+threshold = 1000000
+idx = test_image > threshold
+test_image[idx] = threshold
 
 # Convert it into a gpu array
 test_image_gpu = gpuarray.to_gpu(test_image)
@@ -124,15 +126,33 @@ compiled = compiler.SourceModule(feature_extractor)
 get_features_gpu = compiled.get_function("DepthDifference")
 
 # Compute the features
-print num_tiles
-print tile_size
+print "Starting feature extraction"
 get_features_gpu(test_image_gpu, result, manual_feature_first, manual_feature_second, grid=(num_tiles, num_tiles), block=(tile_size, tile_size, 2),)
+print "Finished"
 
 # Get the data back into a numpy array
-result_numpy = np.array(result)
+#result_numpy = np.array(result)
+result_numpy = result.get()
 
 # Save the data
-pickle.dump(result_numpy, open("result_000000000002.p", 'wb'))
+pickle.dump(result_numpy, open("/media/master/DAVID_SSD/occulsion_data/result/000000000000.p", 'wb'))
 
+print "Using old method"
 # Compute using the current method
-existing_result = im_p.depth_difference_batch(np.expand_dims(test_image, axis=0), [(0, 400),(-300, 200)])
+existing_result = im_p.depth_difference_batch(np.expand_dims(test_image, axis=0), [[(0, 400),(-300, 200)]])
+print "Finished"
+
+existing_result = np.squeeze(existing_result)
+
+# Compare the results to see how close they are
+# Using mean error
+error = result_numpy.astype(np.float64) - existing_result.astype(np.float64)
+#error = np.power(error, 2)
+print np.sum(error)
+print np.max(error)
+print np.count_nonzero(error)
+print ""
+
+avg_error = np.average(error)
+
+print "Average error between results: ", avg_error
