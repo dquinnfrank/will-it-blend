@@ -3,9 +3,10 @@
 import numpy as np
 
 import cPickle as pickle
-
 import sys
 import os
+import h5py
+import time
 
 # Add the path to post_process
 sys.path.insert(0, "../data_generation")
@@ -40,13 +41,13 @@ class Random_forest:
 			self.classifier = pickle.load(open(load_name, 'rb'))
 
 			# Set the warm start to true
-			warm_start = True
+			#warm_start = True
 
 		# Create a new forest
 		else:
 
 			# Create the forest
-			self.classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth)
+			self.classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, warm_start=True)
 
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
@@ -75,14 +76,15 @@ class Random_forest:
 	def train_batch(self, train_data, train_label):
 
 		# If the data isn't of shape (x, features), flatten it
-		train_data = self.rectify_array(train_data)
+		#train_data = self.rectify_array(train_data)
 
 		# Labels must be 1-D
-		train_label = train_label.flatten()
+		#train_label = train_label.flatten()
+		#train_label_view = train_label[:][0]
 
 		# Train the forest
-		self.classifier.fit(train_data, train_label, warm_start = self.warm_start)
-
+		self.classifier.fit(train_data, train_label)
+	"""
 	# Trains on a bunch of pickled data
 	#
 	# source_dir is the directory that contains data and label sub directories
@@ -126,6 +128,50 @@ class Random_forest:
 				self.save_model(save_name.split('.')[0] + "_temp." + save_name.split('.')[1])
 
 		# Save the model once done
+		if save_name:
+
+			self.save_model(save_name)
+	"""
+
+	# Trains on data stored as a h5 file
+	def train(self, file_name, save_name = None, verbose=False):
+
+		# Verbose printing
+		if verbose:
+
+			print "Loading data from: ", file_name
+
+			# Get the starting time
+			start_time = time.time()
+
+
+			# Show the start in readable format
+			print "Start time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
+
+		# Open the data
+		h5_file = h5py.File(file_name, 'r')
+
+		# Get the data and label sets
+		data_set = h5_file["data"]
+		label_set = h5_file["label"]
+
+		# Train the forest
+		self.train_batch(data_set, label_set)
+
+		# Verbose
+		if verbose:
+
+			# Get the end time and the total time taken
+			end_time = time.time()
+			total_time = end_time - start_time
+
+			# Show the end time in readable format
+			print "Ending time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
+
+			# Show the total time
+			print "Total time taken in seconds: ", total_time
+
+		# Save the model if save_name is set
 		if save_name:
 
 			self.save_model(save_name)
@@ -251,7 +297,7 @@ if __name__ == "__main__":
 	print "Training data from: ", data_source_dir
 	print "Testing data from: ", test_source_dir
 	print "Save name: ", save_name
-	print "Example images from: ", ex_image_dir
+	print "Example images from: ", ex_image_name
 
 	# Create the forest trainer
 	pixel_classifier = Random_forest()
