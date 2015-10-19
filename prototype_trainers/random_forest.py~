@@ -80,7 +80,7 @@ class Random_forest:
 
 		# Labels must be 1-D
 		#train_label = train_label.flatten()
-		train_label_view = train_label[:][0]
+		#train_label_view = train_label[:][0]
 
 		# Train the forest
 		self.classifier.fit(train_data, train_label)
@@ -154,6 +154,9 @@ class Random_forest:
 		# Get the data and label sets
 		data_set = h5_file["data"]
 		label_set = h5_file["label"]
+
+		print data_set.shape
+		print label_set.shape
 
 		# Train the forest
 		self.train_batch(data_set, label_set)

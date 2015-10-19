@@ -374,7 +374,7 @@ class Image_processing:
 		with open(bin_name, 'wb') as out_file:
 
 			# Save the file
-			(to_save.flatten()).tofile(out_file)
+			copy.tofile(out_file)
 
 	# Takes the depth channel from the exr image and saves it as a binary file
 	# This is a wrapper for get_channel and save_binary

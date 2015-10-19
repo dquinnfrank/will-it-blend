@@ -1,0 +1,10 @@
+library("bigmemory")
+library("rhdf5")
+
+set_01 <- filebacked.big.matrix(3840000, 2000, backingfile="r_set_01.bin", descriptorfile="r_set_01.desc", backingpath="will-it-blend/generated_data")
+
+for (i in 1 : 3840000)
+{
+   set_01[i] = t(h5read("will-it-blend/generated_data/feature_set_01.h5", "data", index=(list(1:2000, i))))
+}
+
