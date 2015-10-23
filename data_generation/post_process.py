@@ -519,6 +519,31 @@ class Image_processing:
 
 		return feature_array
 
+	# Gets the features from a specified pixel, using cython for faster computation
+	# Computes the features as set in Equation 1 from Real-Time Human Pose Recognition in Parts from Single Depth Images
+	#
+	# returns a numpy array of shape (number_features)
+	# Each location is one of the feature outputs
+	#
+	# image is the image to access, must be a numpy array
+	#
+	# feature_list is the feature offsets to be computed
+	#
+	# target_pixel is the pixel being classified, must be sent as coordinate pair
+	def get_features_cython(self, image, feature_list, target_pixel)
+
+		# Make the features into a np array
+		feature_array = np.array(feature_list).reshape((len(feature_list), 4), dtype=np.int32)
+
+		# Make an array for the features
+		result_features = np.empty((len(feature_list,)), dtype=np.float32)
+
+		# Get the features from the target pixel
+		cython_feature_extraction.get_features(image, feature_array, result_features)
+
+		# Return the results
+		return result_features
+
 	# Saves the feature list for later loading
 	# TODO: make this more portable, only saves pickles right now
 	#
