@@ -1,17 +1,20 @@
 import numpy as np
 cimport numpy as np
 
-def get_features(np.ndarray[np.float32_t, ndim=2] image, np.ndarray[np.uint32_t, ndim=2] feature_list, np.ndarray[np.float32_t] results, int target_x, int target_y):
+def get_features(np.ndarray[np.float32_t, ndim=2] image, np.ndarray[np.int32_t, ndim=2] feature_list, np.ndarray[np.float32_t] results, int target_x, int target_y):
 
 	# This is the value to give to any pixels that are off of the image
 	cdef np.float32_t large_positive = 1000000
 
 	cdef Py_ssize_t feature_index
 
-	cdef Py_ssize_t height_index, width_index
-
 	# The depth at the target pixel
 	cdef np.float32_t depth_at = image[target_x, target_y]
+
+	# If depth_at is 0, make it an epsilon value
+	if (depth_at == 0):
+
+		depth_at = np.finfo(np.float32).eps
 
 	# The offsets of the features
 	cdef int first_offset_x, first_offset_y, second_offset_x, second_offset_y
@@ -61,22 +64,13 @@ def get_features(np.ndarray[np.float32_t, ndim=2] image, np.ndarray[np.uint32_t,
 		# Set the feature in the result array as the difference between the first and second offset values
 		results[feature_index] = first_value - second_value
 
-	print "im:"
-	for i in range(image.shape[0]):
+def get_depth_features_image(np.ndarray[np.float32_t, ndim=2] image, np.ndarray[np.int32_t, ndim=2] feature_list, np.ndarray[np.float32_t, ndim=3] result_image):
 
-		for j in range(image.shape[1]):
+	cdef Py_ssize_t height_index, width_index
 
-			print image[i, j], " ",
+	# Go through each pixel in the image and get the features for the pixel
+	for height_index in range(image.shape[0]):
 
-		print ""
+		for width_index in range(image.shape[1]):
 
-	print "feature_list:"
-	for i in range(feature_list.shape[0]):
-
-		for j in range(feature_list.shape[1]):
-
-			print feature_list[i, j], " ",
-
-		print ""
-
-	print "Targets: ", target_x, " ", target_y
+			get_features(image, feature_list, result_image[height_index, width_index], height_index, width_index)

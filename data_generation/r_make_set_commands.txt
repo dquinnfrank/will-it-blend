@@ -5,6 +5,34 @@ set_01 <- filebacked.big.matrix(3840000, 2000, backingfile="r_set_01.bin", descr
 
 for (i in 1 : 3840000)
 {
-   set_01[i] = t(h5read("will-it-blend/generated_data/feature_set_01.h5", "data", index=(list(1:2000, i))))
+   set_01[i] <- t(h5read("will-it-blend/generated_data/feature_set_01.h5", "data", index=(list(1:2000, i))))
 }
 
+set_01_label <- filebacked.big.matrix(3840000, 1, backingfile="r_set_01_label.bin", descriptorfile="r_set_01_label.desc", backingpath="will-it-blend/generated_data")
+
+for (i in 1:3840000)
+{
+   set_01_label[i] <- h5read("will-it-blend/generated_data/feature_set_01.h5", "label", index=(list(i)))
+}
+
+library("bigrf")
+
+data_desc <- dget("r_set_01.desc")
+train_data <- attach.big.matrix(data_desc)
+
+train_label <- scan("feature_set_01_label_vector.RData")
+train_label <- train_label + 1
+train_label <- as.integer(train_label)
+
+varnlevels <- c(1:2000)
+for (i in 1: 2000)
+{
+   varnlevels[i] <- 0
+}
+
+varnlevels <- as.integer(varnlevels)
+
+varselect <- c(1:2000)
+ntree <- 3L
+
+forest <- bigrfc(train_data, train_label, ntree=ntree, varnlevels=varnlevels, varselect=varselect)
