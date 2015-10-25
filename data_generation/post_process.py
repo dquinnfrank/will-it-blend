@@ -530,18 +530,45 @@ class Image_processing:
 	# feature_list is the feature offsets to be computed
 	#
 	# target_pixel is the pixel being classified, must be sent as coordinate pair
-	def get_features_cython(self, image, feature_list, target_pixel)
+	def get_features_cython(self, image, feature_list, target_pixel):
 
 		# Make the features into a np array
 		feature_array = np.array(feature_list).reshape((len(feature_list), 4), dtype=np.int32)
 
-		# Make an array for the features
+		# Make an array for the results
 		result_features = np.empty((len(feature_list,)), dtype=np.float32)
 
 		# Get the features from the target pixel
 		cython_feature_extraction.get_features(image, feature_array, result_features)
 
 		# Return the results
+		return result_features
+
+	# Uses Cython to get the features for the entire image
+	# Computes the features as set in Equation 1 from Real-Time Human Pose Recognition in Parts from Single Depth Images
+	#
+	# image_batch : numpy array : shape (n_images, height, width)
+	# A batch of images to be computed
+	# Results can take up a lot of memory, it may be necessary to process 1 image at a time
+	#
+	# feature_list : list or numpy array
+	#
+	# returns : results : shape (n_images, height, width, n_features)
+	def ex_image_depth_features(self, image_batch, feature_list):
+
+		# Make the features into a np array
+		feature_array = np.array(feature_list).reshape((len(feature_list), 4), dtype=np.int32)
+
+		# Make an array for the results
+		result_features = np.empty((len(feature_list,)), dtype=np.float32)
+
+		# Go through each image
+		for index, image in enumerate(image_batch):
+
+			# Get the features
+			cython_feature_extraction.get_depth_features_image(image_batch, feature_array, result_features[index])
+
+		# Return the computed features
 		return result_features
 
 	# Saves the feature list for later loading
@@ -623,7 +650,8 @@ class Image_processing:
 					target_pixel = (np.random.randint(height), np.random.randint(width))
 
 				# Get the features from the point
-				feature_data[image_index * n_points_per_image + point_index] = self.get_features(image, target_pixel, feature_list)
+				#feature_data[image_index * n_points_per_image + point_index] = self.get_features(image, target_pixel, feature_list)
+				feature_data[image_index * n_points_per_image + point_index] = self.get_features_cython(image, feature_list, target_pixel)
 
 				# Set the label in the label batch
 				feature_labels[image_index * n_points_per_image + point_index] = label_batch[image_index][target_pixel]
