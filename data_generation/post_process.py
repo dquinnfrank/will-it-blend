@@ -17,9 +17,6 @@ Neither the name of Industrial Light & Magic nor the names of its contributors m
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-import pyximport; pyximport.install()
-import cython_feature_extraction
-
 import OpenEXR
 import Imath
 import Image
@@ -28,6 +25,7 @@ from array import array
 import struct
 import numpy as np
 from PIL import Image as PIL_Image
+import h5py
 
 import sys
 import os
@@ -35,6 +33,9 @@ import errno
 import cPickle as pickle
 from random import shuffle
 import subprocess
+
+import pyximport; pyximport.install()
+import cython_feature_extraction
 
 # Enforces file path
 def enforce_path(path):
@@ -991,7 +992,7 @@ class Image_processing:
 			print "Start index: ", start_index
 			print "End index: ", end_index
 			print "Batch size: ", batch_size
-			print "Scale: ", scale_factor
+			print "Scale: ", self.scale_factor
 
 		# Get the shape of the images
 		# Need to get the header from any uncorrupted image
@@ -1060,6 +1061,126 @@ class Image_processing:
 			finally:
 				# Go to next batch
 				index += batch_size
+
+	# Processes data from the exr images and adds it to an h5 file
+	# Data is assumed to have numbered ascending names
+	#
+	# source_dir : string
+	# Name and path to a folder containing data and label sub directories
+	#
+	# target_name : string
+	# The name to save the h5 file as
+	#
+	# start_index : int
+	# The index to start processing images from
+	#
+	# end_index : int
+	# The index to stop processing images
+	def process_to_h5(self, source_dir, target_name, start_index=None, end_index=None, verbose=False):
+
+		# If end_index is not sent, set it to the largest file in the set
+		if not end_index:
+			end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
+			end_index = int(end_index.strip(".exr"))
+
+		# If start_index is not sent, set it to the lowest file in the set
+		if start_index:
+			index = start_index
+		else:
+			index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))
+
+		if verbose:
+			print "Items in source directory: ", len(get_names(source_dir))
+
+			print "Start index: ", start_index
+			print "End index: ", end_index
+			print "Scale: ", self.scale_factor
+
+		# Get the shape of the images
+		# Need to get the header from any uncorrupted image
+		size = None
+		for name in get_names(source_dir):
+			try:
+				header = OpenEXR.InputFile(os.path.join(source_dir, name)).header()
+
+			except:
+				pass
+
+			else:
+				dw = header['dataWindow']
+				size = (dw.max.y - dw.min.y + 1, dw.max.x - dw.min.x + 1)
+
+				break
+
+		# Create the file
+		with h5py.File(target_name, 'w') as h5_file:
+
+			# Create the dataset
+			data_set = h5_file.create_dataset("data", (0,) + size, maxshape=(None,) + size)
+
+			# Create the label set
+			label_set = h5_file.create_dataset("label", (0,) + size, maxshape=(None,) + size)
+
+			# Loop control
+			done = False
+
+			# Loop through all data, getting batches
+			while not done and index < end_index:
+
+				# Get the data and labels for the batch
+				try:
+					if verbose:
+						print "\rItem index: " + str(index) + "\t",
+						sys.stdout.flush()
+
+					data_plane, label_plane = self.process_to_np(source_dir, index, index)
+
+				# Index went past the end index
+				except IndexError:
+					done = True
+
+				# There is a problem with one of the files, just ignore it
+				except IOError:
+					if verbose:
+						print "File corrupt", str(index)
+
+				# Unknown error
+				except Exception, e:
+					print "Unexpected exception:"
+					print e
+
+				# The file load was successful
+				else:
+
+					# Get the labels from the rgb data
+					label_plane = self.batch_get_labels(label_plane)
+
+					# Set the depth data to be 32 bit floats and add an extra dim for broadcasting
+					data_plane = data_plane.astype(np.float32)
+
+					if verbose:
+						print "Saving",
+						sys.stdout.flush()
+
+					# Increase the size of the sets
+					data_set.resize(len(data_set) + 1, axis = 0)
+					label_set.resize(len(label_set) + 1, axis = 0)
+
+					# Add the data to the data_set
+					data_set[-1] = np.copy(data_plane)
+
+					# Add the label to the label_set
+					label_set[-1] = np.copy(label_plane)
+
+				finally:
+					# Go to next image
+					index += 1
+
+					# Erase current line
+					if verbose:
+
+						print "\r" + " "*25,
+						sys.stdout.flush()
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
