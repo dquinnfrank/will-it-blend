@@ -35,4 +35,6 @@ varnlevels <- as.integer(varnlevels)
 varselect <- c(1:2000)
 ntree <- 3L
 
-forest <- bigrfc(train_data, train_label, ntree=ntree, varnlevels=varnlevels, varselect=varselect)
+maxndsize <- as.integer((length(train_data) / 2000) / 20)
+cachepath <- "R_cache"
+> forest <- bigrfc(train_data, train_label, ntree=ntree, varnlevels=varnlevels, varselect=varselect, maxndsize=maxndsize, cachepath=cachepath, trace=1)

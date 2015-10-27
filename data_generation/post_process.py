@@ -1191,7 +1191,7 @@ class Image_processing:
 				for batch_index, (data_plane, label_plane) in enumerate(zip(data_batch, label_batch)):
 
 					if verbose:
-						print " Saving item: ", batch_index,
+						print "\rItem index: " + str(index) + " to " + str(target_index), " Saving item: ", batch_index,
 						sys.stdout.flush()
 
 					# Increase the size of the sets
@@ -1205,7 +1205,7 @@ class Image_processing:
 					label_set[-1] = label_plane
 
 			finally:
-				# Go to next image
+				# Go to next batch
 				index += batch_size
 
 				# Erase current line
