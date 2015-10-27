@@ -1076,7 +1076,10 @@ class Image_processing:
 	#
 	# end_index : int
 	# The index to stop processing images
-	def process_to_h5(self, source_dir, target_name, start_index=None, end_index=None, verbose=False):
+	#
+	# batch_size : int
+	# Does not affect the output file, only determines how many images will be processed at once
+	def process_to_h5(self, source_dir, target_name, start_index=None, end_index=None, batch_size=128, verbose=False):
 
 		# If end_index is not sent, set it to the largest file in the set
 		if not end_index:
@@ -1094,6 +1097,7 @@ class Image_processing:
 
 			print "Start index: ", start_index
 			print "End index: ", end_index
+			print "Batch size: ", batch_size
 			print "Scale: ", self.scale_factor
 
 		# Get the shape of the images
@@ -1112,8 +1116,20 @@ class Image_processing:
 
 				break
 
-		# Create the file
-		with h5py.File(target_name, 'w') as h5_file:
+		# Check to see if the file already exists
+		try:
+
+			# Open file
+			h5_file = h5py.File(target_name, 'r+')
+
+			# Get the data and label sets
+			data_set = h5_file["data"]
+			label_set = h5_file["label"]
+
+		# File does not exist, create a new one
+		except IOError:
+
+			h5_file = h5py.File(target_name, 'w')
 
 			# Create the dataset
 			data_set = h5_file.create_dataset("data", (0,) + size, maxshape=(None,) + size)
@@ -1121,45 +1137,61 @@ class Image_processing:
 			# Create the label set
 			label_set = h5_file.create_dataset("label", (0,) + size, maxshape=(None,) + size)
 
-			# Loop control
-			done = False
+		# File is malformed, inform user and raise again
+		except KeyError:
 
-			# Loop through all data, getting batches
-			while not done and index < end_index:
+			print "File: ", target_name, " is malformed"
 
-				# Get the data and labels for the batch
-				try:
+			raise
+
+		# Loop control
+		done = False
+
+		# Loop through all data, getting batches
+		while not done and index < end_index:
+
+			# Get the target index
+			target_index = index + batch_size - 1
+
+			if verbose:
+				print "\rItem index: " + str(index) + " to " + str(target_index),
+				sys.stdout.flush()
+
+			# Get the data and labels for the batch
+			try:
+
+				data_batch, label_batch = self.process_to_np(source_dir, index, target_index)
+
+			# Index went past the end index
+			except IndexError:
+				done = True
+
+			# There is a problem with one of the files, just ignore it
+			except IOError:
+				if verbose:
+					print "File corrupt",
+
+			# Unknown error
+			except Exception, e:
+				print "Unexpected exception:"
+				print e
+
+				raise
+
+			# The file load was successful
+			else:
+
+				# Get the labels from the rgb data
+				label_batch = self.batch_get_labels(label_batch)
+
+				# Set the depth data to be 32 bit floats and add an extra dim for broadcasting
+				data_batch = data_batch.astype(np.float32)
+
+				# Add each item to the h5 file
+				for batch_index, (data_plane, label_plane) in enumerate(zip(data_batch, label_batch)):
+
 					if verbose:
-						print "\rItem index: " + str(index) + "\t",
-						sys.stdout.flush()
-
-					data_plane, label_plane = self.process_to_np(source_dir, index, index)
-
-				# Index went past the end index
-				except IndexError:
-					done = True
-
-				# There is a problem with one of the files, just ignore it
-				except IOError:
-					if verbose:
-						print "File corrupt", str(index)
-
-				# Unknown error
-				except Exception, e:
-					print "Unexpected exception:"
-					print e
-
-				# The file load was successful
-				else:
-
-					# Get the labels from the rgb data
-					label_plane = self.batch_get_labels(label_plane)
-
-					# Set the depth data to be 32 bit floats and add an extra dim for broadcasting
-					data_plane = data_plane.astype(np.float32)
-
-					if verbose:
-						print "Saving",
+						print " Saving item: ", batch_index,
 						sys.stdout.flush()
 
 					# Increase the size of the sets
@@ -1167,20 +1199,23 @@ class Image_processing:
 					label_set.resize(len(label_set) + 1, axis = 0)
 
 					# Add the data to the data_set
-					data_set[-1] = np.copy(data_plane)
+					data_set[-1] = data_plane
 
 					# Add the label to the label_set
-					label_set[-1] = np.copy(label_plane)
+					label_set[-1] = label_plane
 
-				finally:
-					# Go to next image
-					index += 1
+			finally:
+				# Go to next image
+				index += batch_size
 
-					# Erase current line
-					if verbose:
+				# Erase current line
+				if verbose:
 
-						print "\r" + " "*25,
-						sys.stdout.flush()
+					print "\r" + " "*50,
+					sys.stdout.flush()
+
+		# Close the h5 file
+		h5_file.close()
 
 # Process all images from the source directory and place them into the target directory
 # Enforces target directory
