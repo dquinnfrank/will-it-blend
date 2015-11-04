@@ -1148,7 +1148,7 @@ class Image_processing:
 		done = False
 
 		# Loop through all data, getting batches
-		while not done and index < end_index:
+		while not done and index + batch_size - 1 < end_index:
 
 			# Get the target index
 			target_index = index + batch_size - 1

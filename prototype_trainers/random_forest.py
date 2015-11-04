@@ -32,7 +32,7 @@ class Random_forest:
 	# Defaults to parameters similar to the one in the Microsoft paper
 	#
 	# TODO: use @classmethod instead of splitting arguments
-	def __init__(self, load_name=None, n_estimators=3, criterion='entropy', max_depth=20):
+	def __init__(self, load_name=None, n_estimators=1, criterion='entropy', max_depth=20, n_jobs=4):
 
 		# If a load_name has been set, load the classifier from the pickle
 		if load_name:
@@ -47,7 +47,7 @@ class Random_forest:
 		else:
 
 			# Create the forest
-			self.classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, warm_start=True)
+			self.classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, warm_start=True, n_jobs=n_jobs)
 
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
@@ -69,11 +69,14 @@ class Random_forest:
 		# Reshape and return
 		return original_array.reshape((product, original_shape[-1]))
 
-	# Trains on one batch
+	# Trains on one batch, adds and trains trees in the forest
 	#
 	# train_data is a numpy array where the final dimension is the feature data
 	# train_label is a numpy array containing the labels, will be flattened
-	def train_batch(self, train_data, train_label):
+	#
+	# increase_trees : int
+	# Adds this many trees to the new forest
+	def train_batch(self, train_data, train_label, increase_trees=1):
 
 		# If the data isn't of shape (x, features), flatten it
 		#train_data = self.rectify_array(train_data)
@@ -84,57 +87,9 @@ class Random_forest:
 
 		# Train the forest
 		self.classifier.fit(train_data, train_label)
-	"""
-	# Trains on a bunch of pickled data
-	#
-	# source_dir is the directory that contains data and label sub directories
-	def train(self, source_dir, save_name=None, verbose=False):
-
-		# Extra line for verbose printing
-		if verbose:
-
-			print ""
-
-		# Set the data and label directories
-		data_dir = os.path.join(source_dir, "data")
-		label_dir = os.path.join(source_dir, "label")
-
-		# Get the names of the data
-		pickle_names = pp.get_names(data_dir)
-
-		# Go through each item
-		for item_index, item_name in enumerate(pickle_names):
-
-			if verbose:
-
-				print "\rTraining progress: " + str(item_index + 1) + " / " + str(len(pickle_names)),
-				sys.stdout.flush()
-
-			# Get the data
-			data_batch = pickle.load(open(os.path.join(data_dir, item_name), 'rb'))
-
-			# Get the labels
-			label_batch = pickle.load(open(os.path.join(label_dir, item_name), 'rb'))
-
-			# Train the forest
-			self.train_batch(data_batch, label_batch)
-
-			# Set the warm_start flag, since the forest has been trained now
-			self.warm_start = True
-
-			# Save after every 5th batch, if save_name is set
-			if save_name:
-
-				self.save_model(save_name.split('.')[0] + "_temp." + save_name.split('.')[1])
-
-		# Save the model once done
-		if save_name:
-
-			self.save_model(save_name)
-	"""
 
 	# Trains on data stored as a h5 file
-	def train(self, file_name, save_name = None, verbose=False):
+	def train(self, file_name, batch_size=2500000, save_name = None, verbose=False):
 
 		# Verbose printing
 		if verbose:
@@ -154,6 +109,17 @@ class Random_forest:
 		# Get the data and label sets
 		data_set = h5_file["data"]
 		label_set = h5_file["label"]
+
+		# Load the data in chunks
+		target_index = batch_size
+		while target_index < data_set.shape[0]:
+
+			pass
+
+		# Get the leftovers if there is at least half of the batch size remaining
+		if target_index - batch_size > batch_size / 2:
+
+			pass
 
 		# Train the forest
 		self.train_batch(data_set, label_set)
