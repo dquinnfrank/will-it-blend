@@ -1062,6 +1062,157 @@ class Image_processing:
 				# Go to next batch
 				index += batch_size
 
+	# Processes data from the exr images into a data set by randomly sampling pixels
+	#
+	# source_dir : string
+	# Name and path to a folder containing data and label sub directories
+	#
+	# target_name : string
+	# The name to save the h5 file as
+	#
+	# start_index : int
+	# The index to start processing images from
+	#
+	# end_index : int
+	# The index to stop processing images
+	#
+	# batch_size : int
+	# Does not affect the output file, only determines how many images will be processed at once
+	def make_h5_data_set(self, source_dir, target_name, start_index=None, end_index=None, batch_size=128, feature_list = None, n_points_per_image = 2000, ignore_non_person=.5, verbose=False):
+
+		# If end_index is not sent, set it to the largest file in the set
+		if not end_index:
+			end_index = max([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))])
+			end_index = int(end_index.strip(".exr"))
+
+		# If start_index is not sent, set it to the lowest file in the set
+		if start_index:
+			index = start_index
+		else:
+			index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))
+
+		if verbose:
+			print "Items in source directory: ", len(get_names(source_dir))
+
+			print "Start index: ", start_index
+			print "End index: ", end_index
+			print "Batch size: ", batch_size
+			print "Scale: ", self.scale_factor
+
+		# Get the shape of the images
+		# Need to get the header from any uncorrupted image
+		size = None
+		for name in get_names(source_dir):
+			try:
+				header = OpenEXR.InputFile(os.path.join(source_dir, name)).header()
+
+			except:
+				pass
+
+			else:
+				dw = header['dataWindow']
+				size = (dw.max.y - dw.min.y + 1, dw.max.x - dw.min.x + 1)
+
+				break
+
+		# Check to see if the file already exists
+		try:
+
+			# Open file
+			h5_file = h5py.File(target_name, 'r+')
+
+			# Get the data and label sets
+			data_set = h5_file["data"]
+			label_set = h5_file["label"]
+
+		# File does not exist, create a new one
+		except IOError:
+
+			h5_file = h5py.File(target_name, 'w')
+
+			# Create the dataset
+			data_set = h5_file.create_dataset("data", (0, len(feature_list)), maxshape=(None, len(feature_list)))
+
+			# Create the label set
+			label_set = h5_file.create_dataset("label", (0,), maxshape=(None,))
+
+		# File is malformed, inform user and raise again
+		except KeyError:
+
+			print "File: ", target_name, " is malformed"
+
+			raise
+
+		# Loop control
+		done = False
+
+		# Loop through all data, getting batches
+		while not done and index + batch_size - 1 < end_index:
+
+			# Get the target index
+			target_index = index + batch_size - 1
+
+			if verbose:
+				print "\rItem index: " + str(index) + " to " + str(target_index),
+				sys.stdout.flush()
+
+			# Get the data and labels for the batch
+			try:
+
+				data_batch, label_batch = self.process_to_np(source_dir, index, target_index)
+
+			# Index went past the end index
+			except IndexError:
+				done = True
+
+			# There is a problem with one of the files, just ignore it
+			except IOError:
+				if verbose:
+					print "File corrupt",
+
+			# Unknown error
+			except Exception, e:
+				print "Unexpected exception:"
+				print e
+
+				raise
+
+			# The file load was successful
+			else:
+
+				# Make the data set
+				data_batch, label_batch = self.depth_difference_set(data_batch, label_batch, feature_list=feature_list, n_points_per_image=n_points_per_image, ignore_non_person=ignore_non_person, verbose=verbose)
+
+				# Add each item to the h5 file
+				for batch_index, (data_plane, label_item) in enumerate(zip(data_batch, label_batch)):
+
+					if verbose:
+						print "\rItem index: " + str(index) + " to " + str(target_index), " Saving item: ", batch_index,
+						sys.stdout.flush()
+
+					# Increase the size of the sets
+					data_set.resize(len(data_set) + 1, axis = 0)
+					label_set.resize(len(label_set) + 1, axis = 0)
+
+					# Add the data to the data_set
+					data_set[-1] = data_plane
+
+					# Add the label to the label_set
+					label_set[-1] = label_item
+
+			finally:
+				# Go to next batch
+				index += batch_size
+
+				# Erase current line
+				if verbose:
+
+					print "\r" + " "*50,
+					sys.stdout.flush()
+
+		# Close the h5 file
+		h5_file.close()
+
 	# Processes data from the exr images and adds it to an h5 file
 	# Data is assumed to have numbered ascending names
 	#
