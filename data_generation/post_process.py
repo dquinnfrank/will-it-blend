@@ -534,13 +534,13 @@ class Image_processing:
 	def get_features_cython(self, image, feature_list, target_pixel):
 
 		# Make the features into a np array
-		feature_array = np.array(feature_list).reshape((len(feature_list), 4), dtype=np.int32)
+		feature_array = np.array(feature_list, dtype=np.int32).reshape((len(feature_list), 4))
 
 		# Make an array for the results
 		result_features = np.empty((len(feature_list,)), dtype=np.float32)
 
 		# Get the features from the target pixel
-		cython_feature_extraction.get_features(image, feature_array, result_features)
+		cython_feature_extraction.get_features(image.astype(np.float32), feature_array, result_features, target_pixel[0], target_pixel[1])
 
 		# Return the results
 		return result_features
@@ -645,7 +645,7 @@ class Image_processing:
 				target_pixel = (np.random.randint(height), np.random.randint(width))
 
 				# If the point is not a person and the random number is greater than the ignore threshold, get a new point
-				while label_batch[image_index][target_pixel] == 0 and np.random.rand() < ignore_non_person:
+				while label_batch[(image_index,) + target_pixel] == 0 and np.random.rand() < ignore_non_person:
 
 					# Get new random point
 					target_pixel = (np.random.randint(height), np.random.randint(width))
@@ -1179,6 +1179,9 @@ class Image_processing:
 
 			# The file load was successful
 			else:
+
+				# Fix the rgb data
+				label_batch = self.batch_get_labels(label_batch)
 
 				# Make the data set
 				data_batch, label_batch = self.depth_difference_set(data_batch, label_batch, feature_list=feature_list, n_points_per_image=n_points_per_image, ignore_non_person=ignore_non_person, verbose=verbose)
