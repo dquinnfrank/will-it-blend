@@ -32,7 +32,10 @@ class Random_forest:
 	# Defaults to parameters similar to the one in the Microsoft paper
 	#
 	# TODO: use @classmethod instead of splitting arguments
-	def __init__(self, load_name=None, n_estimators=1, criterion='entropy', max_depth=20):
+	def __init__(self, load_name=None, n_estimators_inc=4, criterion='entropy', max_depth=20, n_jobs=4):
+
+		# Save the number to increase estimators by
+		self.n_estimators_inc = n_estimators_inc
 
 		# If a load_name has been set, load the classifier from the pickle
 		if load_name:
@@ -40,14 +43,11 @@ class Random_forest:
 			# Load the classifier
 			self.classifier = pickle.load(open(load_name, 'rb'))
 
-			# Set the warm start to true
-			#warm_start = True
-
 		# Create a new forest
 		else:
 
 			# Create the forest
-			self.classifier = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth, warm_start=True)
+			self.classifier = RandomForestClassifier(n_estimators=0, criterion=criterion, max_depth=max_depth, warm_start=True, n_jobs=n_jobs)
 
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
@@ -76,20 +76,16 @@ class Random_forest:
 	#
 	# increase_trees : int
 	# Adds this many trees to the new forest
-	def train_batch(self, train_data, train_label, increase_trees=1):
+	def train_batch(self, train_data, train_label):
 
-		# If the data isn't of shape (x, features), flatten it
-		#train_data = self.rectify_array(train_data)
-
-		# Labels must be 1-D
-		#train_label = train_label.flatten()
-		#train_label_view = train_label[:][0]
+		# Increase the number of estimators
+		self.classifier.n_estimators += self.n_estimators_inc
 
 		# Train the forest
 		self.classifier.fit(train_data, train_label)
 
 	# Trains on data stored as a h5 file
-	def train(self, file_name, save_name = None, verbose=False):
+	def train(self, file_name, batch_size=2500000, save_name = None, start_index = None, end_index = None, verbose=False):
 
 		# Verbose printing
 		if verbose:
@@ -104,32 +100,76 @@ class Random_forest:
 			print "Start time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
 
 		# Open the data
-		h5_file = h5py.File(file_name, 'r')
+		with h5py.File(file_name, 'r') as h5_file:
 
-		# Get the data and label sets
-		data_set = h5_file["data"]
-		label_set = h5_file["label"]
+			# Get the data and label sets
+			data_set = h5_file["data"]
+			label_set = h5_file["label"]
 
-		# Train the forest
-		self.train_batch(data_set, label_set)
+			# Set the start and end if they were sent as None
+			if start_index is None:
 
-		# Verbose
-		if verbose:
+				start_index = 0
 
-			# Get the end time and the total time taken
-			end_time = time.time()
-			total_time = end_time - start_time
+			if end_index is None:
 
-			# Show the end time in readable format
-			print "Ending time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
+				end_index = data_set.shape[0]
 
-			# Show the total time
-			print "Total time taken in seconds: ", total_time
+			# Load the data in chunks
+			target_index = start_index + batch_size
+			while target_index < end_index:
 
-		# Save the model if save_name is set
-		if save_name:
+				# Get a batch of data and labels
+				data_batch = data_set[start_index : target_index]
+				label_batch = label_set[start_index : target_index]
 
-			self.save_model(save_name)
+				if verbose:
+
+					print "\rTraining on batch: ", start_index, " to ", end_index, " "*10,
+					sys.stdout.flush()
+
+				# Train the forest
+				self.train_batch(data_batch, label_batch)
+
+				# Increment the start and target
+				start_index += batch_size
+				target_index += batch_size
+
+			# If there are enough leftovers, do one last training batch
+			if target_index - data_set.shape[0] > batch_size / 2:
+
+				# Set the target index to the end index
+				target_index = end_index
+
+				if verbose:
+
+					print "\rTraining on leftovers: ", start_index, " to ", end_index, " "*10,
+					sys.stdout.flush()
+
+				# Get the remaining items
+				data_batch = data_set[start_index : target_index]
+				label_batch = label_set[start_index : target_index]
+
+				# Train
+				self.train_batch(data_batch, label_batch)
+
+			# Verbose
+			if verbose:
+
+				# Get the end time and the total time taken
+				end_time = time.time()
+				total_time = end_time - start_time
+
+				# Show the end time in readable format
+				print "Ending time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
+
+				# Show the total time
+				print "Total time taken in seconds: ", total_time
+
+			# Save the model if save_name is set
+			if save_name:
+
+				self.save_model(save_name)
 
 	# Saves the model to a pickle for later use
 	#
@@ -170,12 +210,11 @@ class Random_forest:
 		return predictions
 
 	# Tests the classifier and shows the accuracy
-	# Will show the accuracy for each pickle in the sub folders
 	#
 	# Returns a list of accuracies
 	#
 	# source_dir is a directory that contains data and label sub folders
-	def test(self, source_dir, verbose=False):
+	def test(self, file_name, start_index = None, end_index = None, verbose=False):
 
 		# Verbose line
 		if verbose:
@@ -220,22 +259,22 @@ if __name__ == "__main__":
 	# Show use if no arguments have been sent
 	if len(sys.argv) < 2:
 
-		print "Usage: random_forest.py data_source_dir test_source_dir save_name ex_image_dir"
+		print "Usage: random_forest.py data_source_h5 test_split save_name ex_image_dir"
 
 		sys.exit(1)
 
 	# Argument defaults
-	test_source_dir = None
+	test_split = None
 	save_name = None
 	ex_image_name = None
 
 	# Source directory is required
-	data_source_dir = sys.argv[1]
+	data_h5 = sys.argv[1]
 
 	# Testing is optional
 	if len(sys.argv) > 2:
 
-		test_source_dir = sys.argv[2]
+		test_split = float(sys.argv[2])
 
 	# Saving is optional
 	if len(sys.argv) > 3:
@@ -247,10 +286,26 @@ if __name__ == "__main__":
 
 		ex_image_dir = sys.argv[4]
 
+	# Get the size of the data set
+	with h5py.File(data_h5, 'r') as h5_file:
+
+		# Get the data to check the shape
+		data_set_size = h5_file["data"].shape[0]
+
+		# If test_split is set, leave those samples out of training
+		if test_split is not None:
+
+			end_index = int(data_set_size * test_split)
+
+		# Otherwise, use all images for training
+		else:
+
+			end_index = data_set_size
+
 	# Show the configuration
 	print "Configuration"
-	print "Training data from: ", data_source_dir
-	print "Testing data from: ", test_source_dir
+	print "Training data from: ", data_h5
+	print "Testing split: ", test_split, " at: ", end_index
 	print "Save name: ", save_name
 	print "Example images from: ", ex_image_name
 
@@ -258,22 +313,22 @@ if __name__ == "__main__":
 	pixel_classifier = Random_forest()
 
 	# Train the forest
-	pixel_classifier.train(data_source_dir, save_name=save_name, verbose=True)
+	pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
 
 	# Test the forest
-	if test_source_dir:
+	#if test_source_dir:
 
-		pixel_classifier.test(test_source_dir, verbose=True)
+		#pixel_classifier.test(test_source_dir, verbose=True)
 
 	# Get an example images
 	#if ex_image_dir:
 
 	# Manually load a example image
-	first_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_0.p", 'rb'))
-	second_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_1.p", 'rb'))
+	#first_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_0.p", 'rb'))
+	#second_half = pickle.load(open("/media/CORSAIR/ex_image_pickles/data/2_2_1.p", 'rb'))
 
 	# Put them together to make the actual image
-	full_image = np.append(first_half, second_half, axis=3)
+	#full_image = np.append(first_half, second_half, axis=3)
 
 	# Get the predicted image
 	#predicted_image = pixel_classifier.predict(ex_image_name)
