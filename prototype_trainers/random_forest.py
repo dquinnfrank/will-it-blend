@@ -7,6 +7,7 @@ import sys
 import os
 import h5py
 import time
+import gc
 
 # Add the path to post_process
 sys.path.insert(0, "../data_generation")
@@ -115,6 +116,10 @@ class Random_forest:
 
 				end_index = data_set.shape[0]
 
+			if verbose:
+
+				print "Total items to train on: ", end_index - start_index
+
 			# Load the data in chunks
 			target_index = start_index + batch_size
 			while target_index < end_index:
@@ -125,7 +130,7 @@ class Random_forest:
 
 				if verbose:
 
-					print "\rTraining on batch: ", start_index, " to ", end_index, " "*10,
+					print "\rTraining on batch: ", start_index, " to ", target_index, " "*10,
 					sys.stdout.flush()
 
 				# Train the forest
@@ -134,6 +139,11 @@ class Random_forest:
 				# Increment the start and target
 				start_index += batch_size
 				target_index += batch_size
+
+				# Delete this chuck of data to avoid exessive swaping
+				del data_batch
+				del label_batch
+				gc.collect()
 
 			# If there are enough leftovers, do one last training batch
 			if target_index - data_set.shape[0] > batch_size / 2:
