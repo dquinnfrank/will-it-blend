@@ -214,7 +214,7 @@ class Random_forest:
 	# Returns a list of accuracies
 	#
 	# source_dir is a directory that contains data and label sub folders
-	def test(self, file_name, start_index = None, end_index = None, verbose=False):
+	def test(self, file_name, start_index, end_index, verbose=False):
 
 		# Verbose line
 		if verbose:

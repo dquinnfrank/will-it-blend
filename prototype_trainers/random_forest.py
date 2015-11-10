@@ -32,7 +32,7 @@ class Random_forest:
 	# Defaults to parameters similar to the one in the Microsoft paper
 	#
 	# TODO: use @classmethod instead of splitting arguments
-	def __init__(self, load_name=None, n_estimators_inc=4, criterion='entropy', max_depth=20, n_jobs=4):
+	def __init__(self, load_name=None, n_estimators_inc=4, criterion='entropy', max_depth=20, n_jobs=4, verbose = 0):
 
 		# Save the number to increase estimators by
 		self.n_estimators_inc = n_estimators_inc
@@ -47,7 +47,7 @@ class Random_forest:
 		else:
 
 			# Create the forest
-			self.classifier = RandomForestClassifier(n_estimators=0, criterion=criterion, max_depth=max_depth, warm_start=True, n_jobs=n_jobs)
+			self.classifier = RandomForestClassifier(n_estimators=0, criterion=criterion, max_depth=max_depth, warm_start=True, n_jobs=n_jobs, verbose = verbose)
 
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
@@ -310,7 +310,7 @@ if __name__ == "__main__":
 	print "Example images from: ", ex_image_name
 
 	# Create the forest trainer
-	pixel_classifier = Random_forest()
+	pixel_classifier = Random_forest(verbose = 1)
 
 	# Train the forest
 	pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
@@ -332,14 +332,14 @@ if __name__ == "__main__":
 
 	# Get the predicted image
 	#predicted_image = pixel_classifier.predict(ex_image_name)
-	predicted_image = pixel_classifier.predict(full_image)
+	#predicted_image = pixel_classifier.predict(full_image)
 
 	# Turn the predictions into an image
-	view_image = im_p.get_pix_vals(np.squeeze(predicted_image))
+	#view_image = im_p.get_pix_vals(np.squeeze(predicted_image))
 
 	# Reorder the axis to (channels, height, width)
-	view_image = np.rollaxis(view_image, 2)
+	#view_image = np.rollaxis(view_image, 2)
 	#view_image = np.rollaxis(view_image, 2, 1)
 
 	# Save the image
-	im_p.save_image(view_image, "check_random_forest_ex.jpg")
+	#im_p.save_image(view_image, "check_random_forest_ex.jpg")
