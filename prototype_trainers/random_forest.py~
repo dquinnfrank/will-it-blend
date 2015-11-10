@@ -7,6 +7,8 @@ import sys
 import os
 import h5py
 import time
+import gc
+import argparse
 
 # Add the path to post_process
 sys.path.insert(0, "../data_generation")
@@ -120,6 +122,7 @@ class Random_forest:
 				print "Total items to train on: ", end_index - start_index
 
 			# Load the data in chunks
+			iteration = 1
 			target_index = start_index + batch_size
 			while target_index < end_index:
 
@@ -143,6 +146,18 @@ class Random_forest:
 				del data_batch
 				del label_batch
 				gc.collect()
+
+				# Save on regular intervals
+				if iteration % 5 == 0:
+
+					# The temp save name is based off of the save name and includes the index of the last item trained on
+					name, extension = os.path.splittext(save_name)
+
+					temp_save_name = name + "_temp_" + str(target_index) + extension
+
+					self.save_model(temp_save_name)
+
+				iteration += 1
 
 			# If there are enough leftovers, do one last training batch
 			if target_index - data_set.shape[0] > batch_size / 2:
@@ -265,58 +280,87 @@ class Random_forest:
 # Run the system if this is main
 if __name__ == "__main__":
 
-	# Show use if no arguments have been sent
-	if len(sys.argv) < 2:
+	# Create parser object
+	parser = argparse.ArgumentParser(description="Trains and tests a random decision forest to create body segmentation images")
 
-		print "Usage: random_forest.py data_source_h5 test_split save_name ex_image_dir"
+	# Data source is mandatory
+	parser.add_argument("data_source", help="The name, including path and extension, of the data (must be an h5 file)")
+
+	# Test split is optional, specifies the amount of data to be used for training
+	parser.add_argument("-t", "--test-split", type=float, dest="test_split", help="The percent of data to be used for training. Float between 0 - 1. Ex: .7 means 70%% will be used for training and the remainder for testing")
+
+	# Name to save the forest as. Optional
+	parser.add_argument("-s", "--save-name", dest="save_name", help="The name, including path and extension, to save the forest as. Temporary saves will be made with [save_name]_temp")
+
+	# Directory to load example images from. Optional
+	parser.add_argument("-e", "--ex-dir", nargs=2, dest="ex_image_dir", help="First, the name of a directory containing exr images. Second, the name of a directory to save the images to after processing")
+
+	# Get the arguments and unpack them
+	args = parser.parse_args()
+
+	data_h5 = os.path.abspath(args.data_source)
+	test_split = args.test_split
+	save_name = os.path.abspath(args.save_name)
+	if args.ex_image_dir:
+		ex_image_source = os.path.abspath(args.ex_image_dir[0])
+		ex_image_destination = os.path.abspath(args.ex_image_dir[1])
+	else:
+		ex_image_source = None
+		ex_image_destination = None
+		
+
+	# Check for valid data file
+	try:
+
+		# Get the size of the data set
+		with h5py.File(data_h5, 'r') as h5_file:
+
+			# Get the data to check the shape
+			data_set_size = h5_file["data"].shape[0]
+
+			# Make sure that there is also a label set
+			h5_file["label"]
+
+			# If test_split is set, leave those samples out of training
+			if test_split is not None:
+
+				end_index = int(data_set_size * test_split)
+
+			# Otherwise, use all images for training
+			else:
+
+				end_index = data_set_size
+
+	# File did not open
+	except IOError:
+
+		print "File could not be opened: ", data_h5
 
 		sys.exit(1)
 
-	# Argument defaults
-	test_split = None
-	save_name = None
-	ex_image_name = None
+	# File did not have correct format
+	except KeyError:
 
-	# Source directory is required
-	data_h5 = sys.argv[1]
+		print "File was malformed: ", data_h5
 
-	# Testing is optional
-	if len(sys.argv) > 2:
+		sys.exit(1)
 
-		test_split = float(sys.argv[2])
+	# Unknown error
+	except Exception as e:
 
-	# Saving is optional
-	if len(sys.argv) > 3:
+		print "Unknown error:"
+		print e
 
-		save_name = sys.argv[3]
-
-	# Example images are optional
-	if len(sys.argv) > 4:
-
-		ex_image_dir = sys.argv[4]
-
-	# Get the size of the data set
-	with h5py.File(data_h5, 'r') as h5_file:
-
-		# Get the data to check the shape
-		data_set_size = h5_file["data"].shape[0]
-
-		# If test_split is set, leave those samples out of training
-		if test_split is not None:
-
-			end_index = int(data_set_size * test_split)
-
-		# Otherwise, use all images for training
-		else:
-
-			end_index = data_set_size
+		sys.exit(1)
 
 	# Show the configuration
-	print "Configuration"
+	print "\nConfiguration"
 	print "Training data from: ", data_h5
 	print "Testing split: ", test_split, " at: ", end_index
 	print "Save name: ", save_name
-	print "Example images from: ", ex_image_name
+	print "Example images from: ", ex_image_source
+	print "Saving example images to:", ex_image_destination
+	print ""
 
 	# Create the forest trainer
 	pixel_classifier = Random_forest(verbose = 1)
