@@ -17,7 +17,7 @@ import post_process as pp
 im_p = pp.Image_processing()
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 class Random_forest:
 
@@ -151,7 +151,7 @@ class Random_forest:
 				if iteration % 5 == 0:
 
 					# The temp save name is based off of the save name and includes the index of the last item trained on
-					name, extension = os.path.splittext(save_name)
+					name, extension = os.path.splitext(save_name)
 
 					temp_save_name = name + "_temp_" + str(target_index) + extension
 
@@ -177,7 +177,6 @@ class Random_forest:
 				# Train
 				self.train_batch(data_batch, label_batch)
 
-			# Verbose
 			if verbose:
 
 				# Get the end time and the total time taken
@@ -189,6 +188,9 @@ class Random_forest:
 
 				# Show the total time
 				print "Total time taken in seconds: ", total_time
+
+				# Show model parameters
+				print "Total number of trees: ", self.classifier.n_estimators
 
 			# Save the model if save_name is set
 			if save_name:
@@ -206,7 +208,6 @@ class Random_forest:
 	# Predicts a batch of data
 	#
 	# check_data is an array of feature data
-	# It can also be a string that is the name of a pickle with the data
 	#
 	# returns the predicted labels for the data in the same shape that it was sent
 	def predict(self, check_data):
@@ -214,9 +215,9 @@ class Random_forest:
 		#print check_data
 
 		# If check_data is a string, open it as a pickle
-		if isinstance(check_data, str):
+		#if isinstance(check_data, str):
 
-			check_data = pickle.load(open(check_data, 'rb'))
+			#check_data = pickle.load(open(check_data, 'rb'))
 
 		# Get the original shape of the data
 		data_shape = check_data.shape
@@ -233,49 +234,51 @@ class Random_forest:
 		# Return the predictions
 		return predictions
 
-	# Tests the classifier and shows the accuracy
+	# Tests the classifier and get the accuracy and confusion matrix
 	#
-	# Returns a list of accuracies
+	# file_name : string
+	# the name of an h5 file
 	#
-	# source_dir is a directory that contains data and label sub folders
+	# start_index : int
+	# Where to start loading the data from
+	#
+	# end_index : int
+	# Where to stop loading data
 	def test(self, file_name, start_index, end_index, verbose=False):
 
-		# Verbose line
 		if verbose:
 
-			print ""
+			print "Number of testing samples: ", end_index - start_index
 
-		# Set the data and label directories
-		data_dir = os.path.join(source_dir, "data")
-		label_dir = os.path.join(source_dir, "label")
+		# Load the data
+		with h5py.File(file_name, 'r') as h5_file:
 
-		# Get the names of the data
-		pickle_names = pp.get_names(data_dir)
+			# Get the data and label sets
+			data_set = h5_file["data"]
+			label_set = h5_file["label"]
 
-		# Go through each item
-		acc_list = []
-		for item_name in pickle_names:
+			# Load the specified data and labels from the h5 file
+			data_batch = data_set[start_index : end_index]
+			label_batch = label_set[start_index : end_index]
 
-			# Get the data
-			data_batch = pickle.load(open(os.path.join(data_dir, item_name), 'rb'))
-
-			# Get the labels
-			label_batch = pickle.load(open(os.path.join(label_dir, item_name), 'rb'))
-
-			# Get the predictions
+			# Get predictions from the forest
 			predictions = self.predict(data_batch)
 
 			# Get the score
 			score = accuracy_score(label_batch, predictions)
 
-			# Add it to the list
-			acc_list.append(score)
+			# Get the confusion matrix
+			confusion = confusion_matrix(label_batch, predictions)
 
-			# Show the score, if verbose
-			if verbose:
+		# Show the results
+		if verbose:
 
-				print "\rAccuracy: " + str(score),
-				sys.stdout.flush()
+			# Show score and confusion
+			print "Accuracy score: ", score
+			print "Confusion matrix:"
+			print confusion_matrix
+
+		return score, confusion_matrix
 
 # Run the system if this is main
 if __name__ == "__main__":
@@ -321,16 +324,6 @@ if __name__ == "__main__":
 			# Make sure that there is also a label set
 			h5_file["label"]
 
-			# If test_split is set, leave those samples out of training
-			if test_split is not None:
-
-				end_index = int(data_set_size * test_split)
-
-			# Otherwise, use all images for training
-			else:
-
-				end_index = data_set_size
-
 	# File did not open
 	except IOError:
 
@@ -353,6 +346,16 @@ if __name__ == "__main__":
 
 		sys.exit(1)
 
+	# If test_split is set, leave those samples out of training
+	if test_split is not None:
+
+		end_index = int(data_set_size * test_split)
+
+	# Otherwise, use all images for training
+	else:
+
+		end_index = data_set_size
+
 	# Show the configuration
 	print "\nConfiguration"
 	print "Training data from: ", data_h5
@@ -367,6 +370,11 @@ if __name__ == "__main__":
 
 	# Train the forest
 	pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
+
+	# Test the forest if the test spilt is sent
+	if test_split is not None:
+
+		pixel_classifier.test(data_h5, start_index=end_index, end_index=data_h5.shape[0])
 
 	# Test the forest
 	#if test_source_dir:
