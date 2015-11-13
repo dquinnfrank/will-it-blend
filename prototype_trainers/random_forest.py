@@ -132,8 +132,8 @@ class Random_forest:
 
 				if verbose:
 
-					print "\rTraining on batch: ", start_index, " to ", target_index, " "*10,
-					sys.stdout.flush()
+					print "Training on batch: ", start_index, " to ", target_index, " "*10,
+					#sys.stdout.flush()
 
 				# Train the forest
 				self.train_batch(data_batch, label_batch)
@@ -167,8 +167,7 @@ class Random_forest:
 
 				if verbose:
 
-					print "\rTraining on leftovers: ", start_index, " to ", end_index, " "*10,
-					sys.stdout.flush()
+					print "Training on leftovers: ", start_index, " to ", end_index, " "*10,
 
 				# Get the remaining items
 				data_batch = data_set[start_index : target_index]
@@ -176,6 +175,11 @@ class Random_forest:
 
 				# Train
 				self.train_batch(data_batch, label_batch)
+
+				# Delete and call garbage collector
+				del data_batch
+				del label_batch
+				gc.collect()
 
 			if verbose:
 
@@ -195,7 +199,15 @@ class Random_forest:
 			# Save the model if save_name is set
 			if save_name:
 
+				if verbose:
+
+					print "Saving model as: ", save_name
+
 				self.save_model(save_name)
+
+			if verbose:
+
+				print "Training complete"
 
 	# Saves the model to a pickle for later use
 	#
@@ -250,6 +262,8 @@ class Random_forest:
 
 			print "Number of testing samples: ", end_index - start_index
 
+			sys.stdout.flush()
+
 		# Load the data
 		with h5py.File(file_name, 'r') as h5_file:
 
@@ -278,16 +292,51 @@ class Random_forest:
 			print "Confusion matrix:"
 			print confusion_matrix
 
-		return score, confusion_matrix
+		return score, confusion
 
+	# Predicts the per pixel labelings for one image
+	#
+	# image : numpy array : shape (height, width)
+	#
+	# returns : numpy array : shape (height, width)
+	#def image_predict(self, image):
+
+		# TEMP hard coding of feature array
+		# TODO: load this from configuration
+		#feature_file = ""
+	"""
+	# Predicts the pixel labelings for a batch of images
+	#
+	# source_dir : string
+	# Where to load data from
+	#
+	# destination_dir : string
+	# Where to save predictions to
+	def batch_image_predict(self, source_dir, destination_dir):
+
+		# Make the destination directory
+		pp.enforce_path(destination_dir)
+
+		# Load each image individually
+		for file_name in sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ]):
+
+			# Get image
+			ex_im = np.squeeze(pp.get_channels(os.path.join(source_dir, file_name)))
+
+			# Extract the features
+			ex_im = pp.
+	"""
 # Run the system if this is main
 if __name__ == "__main__":
 
 	# Create parser object
 	parser = argparse.ArgumentParser(description="Trains and tests a random decision forest to create body segmentation images")
 
-	# Data source is mandatory
-	parser.add_argument("data_source", help="The name, including path and extension, of the data (must be an h5 file)")
+	# Loading old model is optional
+	parser.add_argument("-l", "--load-name", dest="load_name", help="The name, including path and extension, of an existing forest saved as a pickle to use")
+
+	# Data source is optional
+	parser.add_argument("-d", "--data-source", dest="data_source", help="The name, including path and extension, of the data (must be an h5 file). A forest will be trained on this data")
 
 	# Test split is optional, specifies the amount of data to be used for training
 	parser.add_argument("-t", "--test-split", type=float, dest="test_split", help="The percent of data to be used for training. Float between 0 - 1. Ex: .7 means 70%% will be used for training and the remainder for testing")
@@ -301,6 +350,7 @@ if __name__ == "__main__":
 	# Get the arguments and unpack them
 	args = parser.parse_args()
 
+	
 	data_h5 = os.path.abspath(args.data_source)
 	test_split = args.test_split
 	save_name = os.path.abspath(args.save_name)
@@ -358,6 +408,7 @@ if __name__ == "__main__":
 
 	# Show the configuration
 	print "\nConfiguration"
+	print "Loading from: ", load_name
 	print "Training data from: ", data_h5
 	print "Testing split: ", test_split, " at: ", end_index
 	print "Save name: ", save_name
@@ -366,15 +417,22 @@ if __name__ == "__main__":
 	print ""
 
 	# Create the forest trainer
-	pixel_classifier = Random_forest(verbose = 1)
+	pixel_classifier = Random_forest(load_name=load_name, verbose = 1)
 
-	# Train the forest
-	pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
+	# Train the forest if data source is sent
+	if data_h5 is not None:
+
+		pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
 
 	# Test the forest if the test spilt is sent
-	if test_split is not None:
+	if test_split is not None and data_h5 is not None:
 
-		pixel_classifier.test(data_h5, start_index=end_index, end_index=data_h5.shape[0])
+		pixel_classifier.test(data_h5, start_index=end_index, end_index=data_set_size, verbose=True)
+
+	# Process example images if ex_image_dir is sent
+	if ex_image_source is not None and ex_image_destination is not None:
+
+		pixel_classifier.image_predict()
 
 	# Test the forest
 	#if test_source_dir:
