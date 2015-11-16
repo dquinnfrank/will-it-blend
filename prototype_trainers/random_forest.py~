@@ -51,6 +51,11 @@ class Random_forest:
 			# Create the forest
 			self.classifier = RandomForestClassifier(n_estimators=0, criterion=criterion, max_depth=max_depth, warm_start=True, n_jobs=n_jobs, verbose = verbose)
 
+		if verbose:
+
+			print "Current number of estimators: ", self.classifier.n_estimators
+			print "Incrementing estimators by: ", self.n_estimators_inc
+
 	# Flattens data so that it is of shape (x, features)
 	# Takes the array to be rectified, of shape (x, y, z)
 	# Can have any number of x, y dimensions, last dimension is considered to be the features
@@ -312,7 +317,10 @@ class Random_forest:
 	#
 	# destination_dir : string
 	# Where to save predictions to
-	def batch_image_predict(self, source_dir, destination_dir):
+	def batch_image_predict(self, source_dir, destination_dir, verbose=False):
+
+		# TEMP set features to be loaded
+		feature_list = pickle.load(open("/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/feature_set_01/_feature_list.p"))
 
 		# Make the destination directory
 		pp.enforce_path(destination_dir)
@@ -321,10 +329,36 @@ class Random_forest:
 		for file_name in sorted([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f)) ]):
 
 			# Get image
-			ex_im = np.squeeze(pp.get_channels(os.path.join(source_dir, file_name)))
+			ex_im = np.squeeze(im_p.get_channels(os.path.join(source_dir, file_name), "Z"))
 
-			# Extract the features
-			ex_im = pp.
+			# Extract the features for every pixel
+			# TEMP set size
+			# TODO use the whole image extractor instead of pixelwise
+			ex_features = np.empty((480, 640, 2000), dtype=np.float32)
+			for h_index in range(480):
+				for w_index in range(640):
+
+					if verbose:
+
+						print "\rWorking on image: ", file_name, "Index: ", str(h_index).zfill(3), " ", str(w_index).zfill(3),
+
+						sys.stdout.flush()
+
+					# Get the features for the pixel
+					ex_features[h_index, w_index] = im_p.get_features_cython(ex_im, feature_list, (h_index, w_index))
+
+			# Predict the per pixel labels
+			predicted_image = self.predict(ex_features)
+
+			# Turn the predictions into an image
+			view_image = im_p.get_pix_vals(np.squeeze(predicted_image))
+
+			# Reorder the axis to (channels, height, width)
+			view_image = np.rollaxis(view_image, 2)
+			view_image = np.rollaxis(view_image, 2, 1)
+
+			# Save the image
+			im_p.save_image(view_image, os.path.join(destination_dir, os.path.splitext(file_name)[0] + ".png"))
 
 # Run the system if this is main
 if __name__ == "__main__":
@@ -350,10 +384,28 @@ if __name__ == "__main__":
 	# Get the arguments and unpack them
 	args = parser.parse_args()
 
-	
-	data_h5 = os.path.abspath(args.data_source)
+	# Data source
+	if args.data_source:
+		data_h5 = os.path.abspath(args.data_source)
+	else:
+		data_h5 = None
+
+	# Test split
 	test_split = args.test_split
-	save_name = os.path.abspath(args.save_name)
+
+	# Save name
+	if args.save_name:
+		save_name = os.path.abspath(args.save_name)
+	else:
+		save_name = None
+
+	# Load name
+	if args.load_name:
+		load_name = os.path.abspath(args.load_name)
+	else:
+		load_name = None
+
+	# Example images to predict
 	if args.ex_image_dir:
 		ex_image_source = os.path.abspath(args.ex_image_dir[0])
 		ex_image_destination = os.path.abspath(args.ex_image_dir[1])
@@ -362,58 +414,67 @@ if __name__ == "__main__":
 		ex_image_destination = None
 		
 
-	# Check for valid data file
-	try:
+	# Check for valid data file, if data has been sent
+	if data_h5:
+		try:
 
-		# Get the size of the data set
-		with h5py.File(data_h5, 'r') as h5_file:
+			# Get the size of the data set
+			with h5py.File(data_h5, 'r') as h5_file:
 
-			# Get the data to check the shape
-			data_set_size = h5_file["data"].shape[0]
+				# Get the data to check the shape
+				data_set_size = h5_file["data"].shape[0]
 
-			# Make sure that there is also a label set
-			h5_file["label"]
+				# Make sure that there is also a label set
+				h5_file["label"]
 
-	# File did not open
-	except IOError:
+		# File did not open
+		except IOError:
 
-		print "File could not be opened: ", data_h5
+			print "File could not be opened: ", data_h5
 
-		sys.exit(1)
+			sys.exit(1)
 
-	# File did not have correct format
-	except KeyError:
+		# File did not have correct format
+		except KeyError:
 
-		print "File was malformed: ", data_h5
+			print "File was malformed: ", data_h5
 
-		sys.exit(1)
+			sys.exit(1)
 
-	# Unknown error
-	except Exception as e:
+		# Unknown error
+		except Exception as e:
 
-		print "Unknown error:"
-		print e
+			print "Unknown error:"
+			print e
 
-		sys.exit(1)
+			sys.exit(1)
 
-	# If test_split is set, leave those samples out of training
-	if test_split is not None:
+	# Only need to set end index if there is any training data
+	if data_h5:
 
-		end_index = int(data_set_size * test_split)
+		# If test_split is set, leave those samples out of training
+		if test_split is not None:
 
-	# Otherwise, use all images for training
-	else:
+			end_index = int(data_set_size * test_split)
 
-		end_index = data_set_size
+		# Otherwise, use all images for training
+		else:
+
+			end_index = data_set_size
 
 	# Show the configuration
 	print "\nConfiguration"
-	print "Loading from: ", load_name
-	print "Training data from: ", data_h5
-	print "Testing split: ", test_split, " at: ", end_index
-	print "Save name: ", save_name
-	print "Example images from: ", ex_image_source
-	print "Saving example images to:", ex_image_destination
+	if load_name:
+		print "Loading from: ", load_name
+	if data_h5:
+		print "Training data from: ", data_h5
+	if test_split:
+		print "Testing split: ", test_split, " at: ", end_index
+	if save_name:
+		print "Save name: ", save_name
+	if ex_image_source:
+		print "Example images from: ", ex_image_source
+		print "Saving example images to:", ex_image_destination
 	print ""
 
 	# Create the forest trainer
@@ -432,7 +493,7 @@ if __name__ == "__main__":
 	# Process example images if ex_image_dir is sent
 	if ex_image_source is not None and ex_image_destination is not None:
 
-		pixel_classifier.image_predict()
+		pixel_classifier.batch_image_predict(ex_image_source, ex_image_destination, verbose=True)
 
 	# Test the forest
 	#if test_source_dir:
