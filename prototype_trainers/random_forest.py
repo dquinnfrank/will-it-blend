@@ -331,25 +331,33 @@ class Random_forest:
 			# Get image
 			ex_im = np.squeeze(im_p.get_channels(os.path.join(source_dir, file_name), "Z"))
 
+			if verbose:
+
+				print "\rWorking on image: ", file_name,
+				sys.stdout.flush()
+
+			# Get the image features
+			ex_features = im_p.get_image_features(ex_im, feature_list)
+
 			# Extract the features for every pixel
 			# TEMP set size
 			# TODO use the whole image extractor instead of pixelwise
-			ex_features = np.empty((480, 640, 2000), dtype=np.float32)
-			for h_index in range(480):
-				for w_index in range(640):
+			#ex_features = np.empty((480, 640, 2000), dtype=np.float32)
+			#for h_index in range(480):
+				#for w_index in range(640):
 
-					if verbose:
+					#if verbose:
 
-						print "\rWorking on image: ", file_name, "Index: ", str(h_index).zfill(3), " ", str(w_index).zfill(3),
+						#print "\rWorking on image: ", file_name, "Index: ", str(h_index).zfill(3), " ", str(w_index).zfill(3),
 
-						sys.stdout.flush()
+						#sys.stdout.flush()
 
-			if verbose:
+			#if verbose:
 
-				print ""
+				#print ""
 
 					# Get the features for the pixel
-					ex_features[h_index, w_index] = im_p.get_features_cython(ex_im, feature_list, (h_index, w_index))
+					#ex_features[h_index, w_index] = im_p.get_features_cython(ex_im, feature_list, (h_index, w_index))
 
 			# Predict the per pixel labels
 			predicted_image = self.predict(ex_features)
@@ -359,7 +367,7 @@ class Random_forest:
 
 			# Reorder the axis to (channels, height, width)
 			view_image = np.rollaxis(view_image, 2)
-			view_image = np.rollaxis(view_image, 2, 1)
+			#view_image = np.rollaxis(view_image, 2, 1)
 
 			# Save the image
 			im_p.save_image(view_image, os.path.join(destination_dir, os.path.splitext(file_name)[0] + ".png"))

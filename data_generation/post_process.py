@@ -545,6 +545,29 @@ class Image_processing:
 		# Return the results
 		return result_features
 
+	# Gets the features for an entire image, using cython for faster computation
+	# Computes the features as set in Equation 1 from Real-Time Human Pose Recognition in Parts from Single Depth Images
+	#
+	# returns a numpy array of shape (im_height, im_width, number_features)
+	# Each pixel has the features
+	#
+	# image : numpy array : shape (im_height, im_width)
+	#
+	# feature_list : list
+	# The feature offsets to be computed
+	def get_image_features(self, image, feature_list):
+
+		# Make the features into a np array
+		feature_array = np.array(feature_list, dtype=np.int32).reshape((len(feature_list), 4))
+
+		# Make an array for the results
+		result_features = np.empty(image.shape + (len(feature_list),), dtype=np.float32)
+
+		# Get the features from the image
+		cython_feature_extraction.get_depth_features_image(image.astype(np.float32), feature_array, result_features)
+
+		return result_features
+
 	# Uses Cython to get the features for the entire image
 	# Computes the features as set in Equation 1 from Real-Time Human Pose Recognition in Parts from Single Depth Images
 	#

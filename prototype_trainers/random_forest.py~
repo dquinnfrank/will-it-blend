@@ -344,6 +344,10 @@ class Random_forest:
 
 						sys.stdout.flush()
 
+			if verbose:
+
+				print ""
+
 					# Get the features for the pixel
 					ex_features[h_index, w_index] = im_p.get_features_cython(ex_im, feature_list, (h_index, w_index))
 
@@ -355,7 +359,7 @@ class Random_forest:
 
 			# Reorder the axis to (channels, height, width)
 			view_image = np.rollaxis(view_image, 2)
-			view_image = np.rollaxis(view_image, 2, 1)
+			#view_image = np.rollaxis(view_image, 2, 1)
 
 			# Save the image
 			im_p.save_image(view_image, os.path.join(destination_dir, os.path.splitext(file_name)[0] + ".png"))
