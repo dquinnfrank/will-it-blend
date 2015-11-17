@@ -299,17 +299,6 @@ class Random_forest:
 
 		return score, confusion
 
-	# Predicts the per pixel labelings for one image
-	#
-	# image : numpy array : shape (height, width)
-	#
-	# returns : numpy array : shape (height, width)
-	#def image_predict(self, image):
-
-		# TEMP hard coding of feature array
-		# TODO: load this from configuration
-		#feature_file = ""
-
 	# Predicts the pixel labelings for a batch of images
 	#
 	# source_dir : string
@@ -331,25 +320,13 @@ class Random_forest:
 			# Get image
 			ex_im = np.squeeze(im_p.get_channels(os.path.join(source_dir, file_name), "Z"))
 
-			# Extract the features for every pixel
-			# TEMP set size
-			# TODO use the whole image extractor instead of pixelwise
-			ex_features = np.empty((480, 640, 2000), dtype=np.float32)
-			for h_index in range(480):
-				for w_index in range(640):
-
-					if verbose:
-
-						print "\rWorking on image: ", file_name, "Index: ", str(h_index).zfill(3), " ", str(w_index).zfill(3),
-
-						sys.stdout.flush()
-
 			if verbose:
 
-				print ""
+				print "\rWorking on image: ", file_name,
+				sys.stdout.flush()
 
-					# Get the features for the pixel
-					ex_features[h_index, w_index] = im_p.get_features_cython(ex_im, feature_list, (h_index, w_index))
+			# Get the image features
+			ex_features = im_p.get_image_features(ex_im, feature_list)
 
 			# Predict the per pixel labels
 			predicted_image = self.predict(ex_features)
@@ -374,7 +351,10 @@ if __name__ == "__main__":
 	parser.add_argument("-l", "--load-name", dest="load_name", help="The name, including path and extension, of an existing forest saved as a pickle to use")
 
 	# Data source is optional
-	parser.add_argument("-d", "--data-source", dest="data_source", help="The name, including path and extension, of the data (must be an h5 file). A forest will be trained on this data")
+	parser.add_argument("-d", "--data-source", dest="data_source", help="The name, including path and extension, of the data (must be an h5 file). Will be used for training and testing")
+
+	# Train flag is optional, if it is not sent, no training will be done
+	parser.add_argument("-r", "--train", dest="train_flag", help="Sets if training will occur. Defaults to false")
 
 	# Test split is optional, specifies the amount of data to be used for training
 	parser.add_argument("-t", "--test-split", type=float, dest="test_split", help="The percent of data to be used for training. Float between 0 - 1. Ex: .7 means 70%% will be used for training and the remainder for testing")
@@ -472,7 +452,7 @@ if __name__ == "__main__":
 		print "Loading from: ", load_name
 	if data_h5:
 		print "Training data from: ", data_h5
-	if test_split:
+	if test_split is not None:
 		print "Testing split: ", test_split, " at: ", end_index
 	if save_name:
 		print "Save name: ", save_name
@@ -484,8 +464,8 @@ if __name__ == "__main__":
 	# Create the forest trainer
 	pixel_classifier = Random_forest(load_name=load_name, verbose = 1)
 
-	# Train the forest if data source is sent
-	if data_h5 is not None:
+	# Train the forest if data source is sent and there is data to train on
+	if data_h5 is not None and end_index > 0:
 
 		pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
 

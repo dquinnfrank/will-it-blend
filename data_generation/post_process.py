@@ -89,11 +89,25 @@ class Image_processing:
 	# The inverse of the label dictionary
 	label_to_pix = {v: k for k, v in pix_to_label.items()}
 
-	# The scale to process all images to
-	# TODO: Find a better way to set this
-	# The problem is that this is only needed in get_channels, which is at the bottom of most function calls.
-	# Thus it requires lots of pass-though arguments if scale is not global
-	#scale_factor = 1
+	# Maps label numbers to string descriptions
+	label_to_string = {
+	0 : "Non person",
+	1 : "Head L",
+	2 : "Head R",
+	3 : "Torso L",
+	4 : "Torso R",
+	5 : "Upper Arm L",
+	6 : "Upper Arm R",
+	7 : "Lower Arm L",
+	8 : "Lower Arm R",
+	9 : "Upper Leg L",
+	10 : "Upper Leg R",
+	11 : "Lower Leg L",
+	12 : "Lower Leg R"
+	}
+
+	# Maps string descriptions to numbers
+	string_to_label = {v: k for k, v in label_to_string.items()}
 
 	# Start the class
 	# scale_factor defaults to 1, images are not scaled
@@ -369,6 +383,7 @@ class Image_processing:
 	# bin_name is the name to save the binary file as. Include file path and extension '.bin'
 	# data_type is the python array type to save the data as
 	# default is double: 'd'
+	# KILL: torch
 	def save_binary(self, to_save, bin_name, data_type='d'):
 
 		# Flatten and convert to a Python array
@@ -384,6 +399,7 @@ class Image_processing:
 	# This is a wrapper for get_channel and save_binary
 	# exrfile is an opened exr file or a file name
 	# save_name is the name to save the output as
+	# KILL: torch
 	def save_depth_binary(self, exrfile, save_name):
 
 		# Get the depth channel
@@ -419,6 +435,7 @@ class Image_processing:
 	# target_pixel is a tuple containing the coordinates of the pixel to be accessed
 	#
 	# large_positive is the value to return if the target_pixel is off of the image
+	# KILL: slow, replaced by cython
 	def depth_probe(self, image, target_pixel, large_positive=1000000.0):
 
 		# Get image shape info
@@ -479,6 +496,7 @@ class Image_processing:
 	# target_pixel is the pixel being classified, must be sent as coordinate pair
 	#
 	# feature_list is the feature offsets to be computed
+	# KILL: slow, replaced by cython
 	def get_features(self, image, target_pixel, feature_list):
 
 		# Get a copy of the target_pixel as a numpy array, for computations
@@ -531,6 +549,7 @@ class Image_processing:
 	# feature_list is the feature offsets to be computed
 	#
 	# target_pixel is the pixel being classified, must be sent as coordinate pair
+	# TODO: rename
 	def get_features_cython(self, image, feature_list, target_pixel):
 
 		# Make the features into a np array
@@ -636,6 +655,7 @@ class Image_processing:
 	#
 	# remove_non_person is the chance that a pixel that is not from a person will be ignored
 	# Since non-person pixels may be the majority in the set, this prevents them from being overwhelming
+	# TODO: replace random feature selection with something more directed
 	def depth_difference_set(self, image_batch, label_batch, feature_list = None, n_points_per_image = 2000, ignore_non_person = .5, verbose = False):
 
 		# Blank line for verbose printing
@@ -749,6 +769,7 @@ class Image_processing:
 	# The labels will be of shape: (batch_size, height, width)
 	# TODO: fix the pickling issues
 	# WARNING: Only call with batch_size = 1
+	# KILL : not using pickles anymore
 	def process_depth_diff_pickles(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=1, feature_list=None, verbose=False):
 	
 		# Make sure that the bounds are acceptable
@@ -872,6 +893,7 @@ class Image_processing:
 	# feature_list is the features to be extracted from the image
 	#
 	# verbose controls output
+	# TODO: possible conflict with ex_image_depth_features
 	def make_ex_images(self, source_dir, target_dir, feature_list, start_index = None, end_index= None, verbose = False):
 
 		# Verbose newline
@@ -887,6 +909,7 @@ class Image_processing:
 	# Within the target folder, creates sub folders for rgb and depth binary images
 	# If start_index is specified, process will only process files that are higher than the sent value
 	# If end_index is specified, process will only process files that are lower than the sent value
+	# KILL : torch
 	def process_to_file(self, source_dir, target_dir, start_index=None, end_index=None):
 
 		# Names for the subdirs in target dir
@@ -968,6 +991,7 @@ class Image_processing:
 	# Labels : (n_images, height, width)
 	# If start_index is specified, process will only process files that are higher than the sent value
 	# If end_index is specified, process will only process files that are lower than the sent value
+	# TODO: expand to make sure that images are fully ready for use
 	def process_to_ready(self, source_dir, start_index=None, end_index=None):
 
 		# Get the data as numpy arrays
@@ -986,6 +1010,7 @@ class Image_processing:
 	# n_items is typically a few items less than the batch size, due to invalid items that have been removed
 	# If start_index is specified, process will only process files that are higher or equal than the sent value
 	# If end_index is specified, process will only process files that are lower or equal than the sent value
+	# KILL: not using pickles anymore
 	def process_to_pickle(self, source_dir, target_dir, start_index=None, end_index=None, batch_size=3, verbose=False):
 
 		# If end_index is not sent, set it to the largest file in the set
@@ -1101,6 +1126,7 @@ class Image_processing:
 	#
 	# batch_size : int
 	# Does not affect the output file, only determines how many images will be processed at once
+	# TODO: distinguish as tree related
 	def make_h5_data_set(self, source_dir, target_name, start_index=None, end_index=None, batch_size=128, feature_list = None, n_points_per_image = 2000, ignore_non_person=.5, verbose=False):
 
 		# If end_index is not sent, set it to the largest file in the set
