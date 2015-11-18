@@ -295,7 +295,7 @@ class Random_forest:
 			# Show score and confusion
 			print "Accuracy score: ", score
 			print "Confusion matrix:"
-			print confusion_matrix
+			print confusion
 
 		return score, confusion
 

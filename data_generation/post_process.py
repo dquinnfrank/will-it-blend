@@ -38,6 +38,7 @@ import pyximport; pyximport.install()
 import cython_feature_extraction
 
 # Enforces file path
+# MOVE to shared utility
 def enforce_path(path):
     try:
 	os.makedirs(path)
@@ -47,6 +48,8 @@ def enforce_path(path):
 	else: raise
 
 # Gets a list of files based on the start and end indices
+# TODO make extension less specific
+# MOVE to shared utility
 def get_names(source_dir, start_index=None, end_index=None, randomize=False):
 
 	# Get the names of every file
@@ -375,6 +378,39 @@ class Image_processing:
 		if verbose:
 
 			print "Remaining items: ", len(get_names(source_dir, start_index, end_index))
+
+	# Shows information about the data set
+	# Shows fraction of samples that are non person
+	# Then shows fractions of body part labels among the non person labels
+	#
+	# h5_set_name : string
+	# The name of an h5 data set to load
+	def data_set_info(self, h5_set_name):
+
+		# Open the data set
+		with h5py.File(h5_set_name, 'r') as h5_file:
+
+			# Get the labels from the set
+			label_set = h5_file["label"]
+
+			# Total number of items in the set
+			total_items = len(label_set[:])
+
+			# Get the amount of non person labels
+			non_person_count = np.sum(label_set[:] == 0)
+
+			print "Non person total fraction ", non_person_count / float(total_items)
+
+			# Amount of samples that are body parts
+			person_count = total_items - non_person_count
+
+			# Get the fractions for each person label
+			for label_index in range(1, len(self.label_to_string)):
+
+				# Get the fraction
+				fraction = np.sum(label_set[:] == label_index) / float(person_count)
+
+				print str(label_index).ljust(3) + self.label_to_string[label_index].ljust(24) + str(fraction)
 
 	# Saves the given data as a binary array
 	# Data will be flattened before saving
