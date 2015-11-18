@@ -163,6 +163,7 @@ class Image_processing:
 		np_pix = np.empty((len(pix_float), int(self.scale_factor * size[1]), int(self.scale_factor * size[0])))
 
 		# Place the pixel data into the numpy array
+		# TODO: use a more efficient conversion
 		for index in range(len(pix_float)):
 			np_pix[index] = np.array(pix_float[index].resize((int(self.scale_factor * size[0]), int(self.scale_factor * size[1]))))
 

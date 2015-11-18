@@ -7,7 +7,8 @@ import sys
 import os
 
 # All options, with defaults
-parameters = {"SAVE_PATH" : None, "GENERATE_NUMBER" : None, "DEBUG_OUTPUT" : ["FALSE"], "OFFSET" : ['0']}
+# TODO: Fix the list weirdness
+parameters = {"SAVE_PATH" : None, "GENERATE_NUMBER" : None, "DEBUG_OUTPUT" : ["FALSE"], "OFFSET" : ['0'], "TYPE" : [1]}
 
 # Required parameters
 required = ["GENERATE_NUMBER", "SAVE_PATH"]

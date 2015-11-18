@@ -18,11 +18,15 @@ def enforce_path(path):
 
 # Command line arguments
 
+# Type 0 is an easy data set that has the person facing the camera and no occulsion
+# Type 1 has random orientation and occulsions
+
 # Set all of the flags
 save_path = None		# REQUIRED
 number_of_images = None		# REQUIRED
 debug_flag = False		# OPTIONAL
 offset = 0			# OPTIONAL
+data_set_type = 0		# OPTIONAL
 
 # Parse all of the arguments
 for index, flag in enumerate(sys.argv):
@@ -44,6 +48,10 @@ for index, flag in enumerate(sys.argv):
 	if flag == "OFFSET":
 		offset = int(sys.argv[index+1])
 
+	# Type of data set to create, following number gives the data set code
+	if flag == "TYPE":
+		data_set_type = int(sys.argv[index+1])
+
 # Check for required arguments, if any are missing, quit
 if(save_path is None or number_of_images is None):
 	print("Arguments missing")
@@ -53,7 +61,7 @@ if(save_path is None or number_of_images is None):
 enforce_path(save_path)
 
 # Enforce vert save path
-enforce_path(save_path[:-1] + "_verts/")
+enforce_path(save_path.rstrip("/") + "_verts/")
 
 # Set the path where data should be loaded from
 path = os.getcwd() + "/blend_data/"
@@ -69,14 +77,17 @@ for image_index in range(offset, offset + number_of_images):
 	# Create a random pose
 	person.random_pose()
 
-	# Create a random rotation
-	person.random_rotation()
+	# Foe the harder data set, add rotation to the person and occulsion
+	if data_set_type == 1:
 
-	# Add occulsion
-	random_occulsion(debug_flag)
+		# Create a random rotation
+		person.random_rotation()
+
+		# Add occulsion
+		random_occulsion(debug_flag)
 
 	# Save the key vertices
-	person.save_key_verts(save_path[:-1] + "_verts/" + str(image_index).zfill(12))
+	person.save_key_verts(save_path.rstrip("/") + "_verts/" + str(image_index).zfill(12))
 
 	# Save the image
 	save_image(save_path + str(image_index).zfill(12), debug_flag)
