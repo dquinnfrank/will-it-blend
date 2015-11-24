@@ -26,6 +26,7 @@ import struct
 import numpy as np
 from PIL import Image as PIL_Image
 import h5py
+import gc
 
 import sys
 import os
@@ -1276,7 +1277,7 @@ class Image_processing:
 				for batch_index, (data_plane, label_item) in enumerate(zip(data_batch, label_batch)):
 
 					if verbose:
-						print "\rItem index: " + str(index) + " to " + str(target_index), " Saving item: ", batch_index,
+						print "\rItem index: " + str(index) + " to " + str(target_index), " Saving item: ", batch_index, " of ", len(label_batch),
 						sys.stdout.flush()
 
 					# Increase the size of the sets
@@ -1288,6 +1289,11 @@ class Image_processing:
 
 					# Add the label to the label_set
 					label_set[-1] = label_item
+
+				# Delete the current batch to avoid swapping
+				del data_batch
+				del label_batch
+				gc.collect()
 
 			finally:
 				# Go to next batch
