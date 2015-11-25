@@ -125,6 +125,11 @@ for im_index, label_im_name in enumerate(file_names):
 		print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to testing set",
 		sys.stdout.flush()
 
+train_data_txn.__exit__()
+train_label_txn.__exit__()
+test_data_txn.__exit__()
+test_label_txn.__exit__()
+
 train_data_db.close()
 
 train_label_db.close()
