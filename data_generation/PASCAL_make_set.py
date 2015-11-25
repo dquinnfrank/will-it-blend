@@ -31,51 +31,104 @@ def enforce_path(path):
 	    pass
 	else: raise
 
+# Split for training and testing
+split = .9
+
 # Labeled images used by FCN
 label_source_dir = "./59_context_labels"
 
 # The original RGB images, not all are used in the label set
 image_source_dir = "./VOCdevkit/VOC2010/JPEGImages"
 
-# Create the lmdb
-in_db = lmdb.open('image-lmdb',  map_size=int(1e12))
+# Training data lmdb
+train_data_db = lmdb.open('pascal-context-train-lmdb',  map_size=int(1e12))
 
-# Open the lmdb
-with in_db.begin(write=True) as in_txn:
+# Training label lmdb
+train_label_db = lmdb.open('pascal-context-train-gt59-lmdb', map_size=int(1e12))
 
-	# Iterate through the names of the images in the label directory
-	file_names = sorted([ f for f in os.listdir(label_source_dir) if os.path.isfile(os.path.join(label_source_dir,f)) ])
-	for im_index, label_im_name in enumerate(file_names):
+# Testing data lmdb
+test_data_db = lmdb.open('pascal-context-val-lmdb', map_size=int(1e12))
+
+# Testing label lmdb
+test_label_db = lmdb.open('pascal-context-val-gt59-lmdb', map_size=int(1e12))
+
+# Train data
+train_data_txn = train_data_db.begin(write=True)
+
+# Train label
+train_label_txn = train_label_db.begin(write=True)
+
+# Test data
+test_data_txn = test_data_db.begin(write=True)
+
+# Test label
+test_label_txn = test_label_db.begin(write=True)
+
+# Iterate through the names of the images in the label directory
+file_names = sorted([ f for f in os.listdir(label_source_dir) if os.path.isfile(os.path.join(label_source_dir,f)) ])
+for im_index, label_im_name in enumerate(file_names):
+
+	# The base name of the image
+	base_name = os.path.splitext(label_im_name)[0]
+
+	# Load the label image
+	label_im = np.array(Image.open(os.path.join(label_source_dir, label_im_name)))
+
+	# Get that image in the RGB source
+	data_im = np.array(Image.open(os.path.join(image_source_dir, base_name + ".jpg")))
+
+	# Switch from RGB to BGR
+	data_im = data_im[:,:,::-1]
+
+	# Change to using floats
+	data_im = data_im.astype(np.float32)
+
+	# Make sure this is np.unit8
+	label_im = label_im.astype(np.uint8)
+
+	# Subtract the mean from each channel
+	data_im -= np.array([104.00698793, 116.66876762, 122.67891434])
+
+	# Switch dimensions from (height, width, channels) to (channels, height, width)
+	data_im = np.rollaxis(data_im, 2)
+
+	# Make a new single dimension
+	label_im = np.expand_dims(label_im, axis=0)
+
+	# Get image into a datum
+	data_im_datum = caffe.io.array_to_datum(data_im.astype(float))
+	label_im_datum = caffe.io.array_to_datum(label_im)
+
+	# If this index is below the split, place data and label into the training lmdb
+	if im_index < split * len(file_names):
+
+		# Place the data image
+		train_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
+
+		# Place the label datum item
+		train_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
 
 		# Show progress
-		print "\rWorking on item: ", im_index, " of ", len(file_names),
+		print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to training set",
 		sys.stdout.flush()
 
-		# The base name of the image
-		base_name = os.path.splitext(label_im_name)[0]
+	# Goes into the testing set
+	else:
 
-		# Load the label image
-		label_im_RGB = np.array(Image.open(os.path.join(label_source_dir, label_im_name)))
+		# Place the data image
+		test_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
 
-		# Get that image in the RGB source
-		data_im_RGB = np.array(Image.open(os.path.join(image_source_dir, base_name + ".jpg")))
+		# Place the label datum item
+		test_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
 
-		# Switch from RGB to BGR
-		data_im_BGR = data_im_RGB[:,:,::-1]
+		# Show progress
+		print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to testing set",
+		sys.stdout.flush()
 
-		# Change to using floats
-		data_im_BGR = data_im_BGR.astype(np.float32)
+train_data_db.close()
 
-		# Subtract the mean from each channel
-		data_im_BGR -= np.array([104.00698793, 116.66876762, 122.67891434])
+train_label_db.close()
 
-		# Switch dimensions from (height, width, channels) to (channels, height, width)
-		data_im_BGR = np.rollaxis(data_im_BGR, 2)
+test_data_db.close()
 
-		# Get image into a datum, need to change image type to float
-		data_im_datum = caffe.io.array_to_datum(data_im_BGR.astype(float))
-
-		# Put the image into the lmdb
-		in_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
-
-in_db.close()
+test_label_db.close()
