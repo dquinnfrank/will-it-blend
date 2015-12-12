@@ -1,0 +1,69 @@
+require 'torch'
+require 'cutorch'
+require 'cunn'
+
+require 'hdf5'
+
+-- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
+
+-- Where to load data from
+load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
+
+print("Loading data from:")
+print(load_set)
+
+-- Get the handle for the whole data set
+whole_set = hdf5.open(load_set, 'r')
+
+-- Get the handles for the data and label sets
+data_set = whole_set:read('data')
+label_set = whole_set:read('label')
+
+-- Set the GPU to use
+cutorch.setDevice(1)
+
+-- The last main line convolution and pooling
+-- Starts from pool4
+final_main = nn.Sequential()
+
+-- conv5
+final_main:add(nn.SpatialFullConvolution(512, 512, 3 ,3, 1, 1, 1, 1)) -- conv5_1
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialFullConvolution(512, 512, 3, 3, 1, 1, 1, 1)) -- conv5_2
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialFullConvolution(512, 512, 3, 3, 1, 1, 1, 1)) -- conv5_3
+
+-- pool5
+final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+-- conv6-7
+-- aka fc6-7
+
+--final_main:add(nn.SpatialFullConvolution(512, 4096, 7, 7)) -- fc6
+--final_main:add(nn.ReLU())
+--final_main:add(nn.Dropout(.5))
+--final_main:add(nn.SpatialFullConvolution(4096, 4096, 1, 1)) -- fc7
+--final_main:add(nn.ReLU())
+--final_main:add(nn.Dropout(.5))
+
+-- output layer
+--final_main:add(nn.SpatialFullConvolution(4096, 13, 1, 1))
+
+-- Upscale
+final_main:add(nn.SpatialUpSamplingNearest(2)) -- TEMP
+
+-- Move to GPU
+final_main:cuda()
+
+-- TEMP test net forward with random data
+rand_data = torch.randn(512 * 50 * 50):reshape(512, 50, 50):cuda()
+print ("Input shape:")
+print (rand_data:size())
+
+out = final_main:forward(rand_data)
+
+print("Out shape:")
+print(out:size())
+
+-- Close the hdf5
+whole_set:close()

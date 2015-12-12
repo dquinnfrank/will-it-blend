@@ -31,6 +31,9 @@ def enforce_path(path):
 	    pass
 	else: raise
 
+# The shape (height, width) that all images must be resized to
+required_shape = (500, 500)
+
 # Split for training and testing
 split = .9
 
@@ -53,82 +56,108 @@ test_data_db = lmdb.open('pascal-context-val-lmdb', map_size=int(1e12))
 test_label_db = lmdb.open('pascal-context-val-gt59-lmdb', map_size=int(1e12))
 
 # Train data
-train_data_txn = train_data_db.begin(write=True)
+#train_data_txn = train_data_db.begin(write=True)
 
 # Train label
-train_label_txn = train_label_db.begin(write=True)
+#train_label_txn = train_label_db.begin(write=True)
 
 # Test data
-test_data_txn = test_data_db.begin(write=True)
+#test_data_txn = test_data_db.begin(write=True)
 
 # Test label
-test_label_txn = test_label_db.begin(write=True)
+#test_label_txn = test_label_db.begin(write=True)
 
-# Iterate through the names of the images in the label directory
-file_names = sorted([ f for f in os.listdir(label_source_dir) if os.path.isfile(os.path.join(label_source_dir,f)) ])
-for im_index, label_im_name in enumerate(file_names):
+with train_data_db.begin(write=True) as train_data_txn, train_label_db.begin(write=True) as train_label_txn, test_data_db.begin(write=True) as test_data_txn, test_label_db.begin(write=True) as test_label_txn:
 
-	# The base name of the image
-	base_name = os.path.splitext(label_im_name)[0]
+	# Iterate through the names of the images in the label directory
+	file_names = sorted([ f for f in os.listdir(label_source_dir) if os.path.isfile(os.path.join(label_source_dir,f)) ])
+	for im_index, label_im_name in enumerate(file_names):
 
-	# Load the label image
-	label_im = np.array(Image.open(os.path.join(label_source_dir, label_im_name)))
+		# The base name of the image
+		base_name = os.path.splitext(label_im_name)[0]
 
-	# Get that image in the RGB source
-	data_im = np.array(Image.open(os.path.join(image_source_dir, base_name + ".jpg")))
+		# Load the label image
+		label_im = np.array(Image.open(os.path.join(label_source_dir, label_im_name)))
 
-	# Switch from RGB to BGR
-	data_im = data_im[:,:,::-1]
+		# Get that image in the RGB source
+		data_im = np.array(Image.open(os.path.join(image_source_dir, base_name + ".jpg")))
 
-	# Change to using floats
-	data_im = data_im.astype(np.float32)
+		# Switch from RGB to BGR
+		data_im = data_im[:,:,::-1]
 
-	# Make sure this is np.unit8
-	label_im = label_im.astype(np.uint8)
+		data_dtype = data_im.dtype
 
-	# Subtract the mean from each channel
-	data_im -= np.array([104.00698793, 116.66876762, 122.67891434])
+		# Switch to an Image for resizing
+		data_im = Image.fromarray(data_im)
 
-	# Switch dimensions from (height, width, channels) to (channels, height, width)
-	data_im = np.rollaxis(data_im, 2)
+		# Set to the required size
+		data_im = data_im.resize(required_shape, Image.ANTIALIAS)
 
-	# Make a new single dimension
-	label_im = np.expand_dims(label_im, axis=0)
+		# Set back to an array
+		data_im = np.array(data_im, data_dtype)
 
-	# Get image into a datum
-	data_im_datum = caffe.io.array_to_datum(data_im.astype(float))
-	label_im_datum = caffe.io.array_to_datum(label_im)
+		# Change to using floats
+		data_im = data_im.astype(np.float32)
 
-	# If this index is below the split, place data and label into the training lmdb
-	if im_index < split * len(file_names):
+		# Make sure this is np.unit8
+		label_im = label_im.astype(np.uint8)
 
-		# Place the data image
-		train_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
+		# Subtract the mean from each channel
+		#data_im -= np.array([104.00698793, 116.66876762, 122.67891434])
 
-		# Place the label datum item
-		train_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
+		# Switch dimensions from (height, width, channels) to (channels, height, width)
+		data_im = np.rollaxis(data_im, 2)
 
-		# Show progress
-		print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to training set",
-		sys.stdout.flush()
+		# Switch to an Image for resizing
+		label_dtype = label_im.dtype
+		label_im = Image.fromarray(label_im)
 
-	# Goes into the testing set
-	else:
+		# Resize
+		label_im = label_im.resize(required_shape, Image.NEAREST)
 
-		# Place the data image
-		test_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
+		# Get back into np array
+		label_im = np.array(label_im, label_dtype)
 
-		# Place the label datum item
-		test_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
+		# Make a new single dimension
+		label_im = np.expand_dims(label_im, axis=0)
 
-		# Show progress
-		print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to testing set",
-		sys.stdout.flush()
+		# Fix mislabels
+		label_im[label_im == 255] = 21
 
-train_data_txn.__exit__()
-train_label_txn.__exit__()
-test_data_txn.__exit__()
-test_label_txn.__exit__()
+		# Get image into a datum
+		data_im_datum = caffe.io.array_to_datum(data_im.astype(float))
+		label_im_datum = caffe.io.array_to_datum(label_im)
+
+		# If this index is below the split, place data and label into the training lmdb
+		if im_index < split * len(file_names):
+
+			# Place the data image
+			train_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
+
+			# Place the label datum item
+			train_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
+
+			# Show progress
+			print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to training set",
+			sys.stdout.flush()
+
+		# Goes into the testing set
+		else:
+
+			# Place the data image
+			test_data_txn.put('{:0>10d}'.format(im_index), data_im_datum.SerializeToString())
+
+			# Place the label datum item
+			test_label_txn.put('{:0>10d}'.format(im_index), label_im_datum.SerializeToString())
+
+			# Show progress
+			print "\rCompleted item: ", im_index + 1, " of ", len(file_names), ". Saved to testing set",
+			sys.stdout.flush()
+
+#train_data_txn.__exit__()
+#train_label_txn.__exit__()
+#test_data_txn.__exit__()
+#test_label_txn.__exit__()
 
 train_data_db.close()
 
