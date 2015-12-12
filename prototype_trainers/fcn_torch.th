@@ -6,6 +6,9 @@ require 'hdf5'
 
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
+-- The number of output classes
+n_classes = 13
+
 -- Where to load data from
 load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
 
@@ -26,44 +29,121 @@ cutorch.setDevice(1)
 -- Starts from pool4
 final_main = nn.Sequential()
 
+-- Tracks the amount of sampling
+sampling = 1
+
+-- The kernel size to use for all standard conv layers
+k_size = 3
+
+-- The padding needed on standard conv layers to keep shape right
+pad = torch.floor((k_size - 1)/2)
+
+-- conv1
+conv1_planes = 64
+
+final_main:add(nn.SpatialConvolution(1, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_1
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv1_planes, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_2
+final_main:add(nn.ReLU())
+
+-- pool1
+sampling = 2 * sampling
+final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+-- conv2
+conv2_planes = 128
+
+final_main:add(nn.SpatialConvolution(conv1_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_1
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv2_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_2
+final_main:add(nn.ReLU())
+
+-- pool2
+sampling = 2 * sampling
+final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+-- conv3
+conv3_planes = 256
+
+final_main:add(nn.SpatialConvolution(conv2_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_1
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_2
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_3
+final_main:add(nn.ReLU())
+
+-- pool3
+sampling = 2 * sampling
+final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+-- conv4
+conv4_planes = 512
+
+final_main:add(nn.SpatialConvolution(conv3_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_1
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_2
+final_main:add(nn.ReLU())
+final_main:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_3
+final_main:add(nn.ReLU())
+
+-- pool4
+sampling = 2 * sampling
+final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
 -- conv5
-final_main:add(nn.SpatialFullConvolution(512, 512, 3 ,3, 1, 1, 1, 1)) -- conv5_1
+conv5_planes = 512
+
+final_main:add(nn.SpatialFullConvolution(conv4_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_1
 final_main:add(nn.ReLU())
-final_main:add(nn.SpatialFullConvolution(512, 512, 3, 3, 1, 1, 1, 1)) -- conv5_2
+final_main:add(nn.SpatialFullConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_2
 final_main:add(nn.ReLU())
-final_main:add(nn.SpatialFullConvolution(512, 512, 3, 3, 1, 1, 1, 1)) -- conv5_3
+final_main:add(nn.SpatialFullConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_3
 
 -- pool5
+sampling = 2 * sampling
 final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv6-7
 -- aka fc6-7
+fc6_7_planes = 4096
 
---final_main:add(nn.SpatialFullConvolution(512, 4096, 7, 7)) -- fc6
+--final_main:add(nn.SpatialFullConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
 --final_main:add(nn.ReLU())
 --final_main:add(nn.Dropout(.5))
---final_main:add(nn.SpatialFullConvolution(4096, 4096, 1, 1)) -- fc7
+--final_main:add(nn.SpatialFullConvolution(fc6_7_planes, fc6_7_planes, 1, 1)) -- fc7
 --final_main:add(nn.ReLU())
 --final_main:add(nn.Dropout(.5))
 
 -- output layer
---final_main:add(nn.SpatialFullConvolution(4096, 13, 1, 1))
+--final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
+final_main:add(nn.SpatialFullConvolution(conv5_planes, n_classes, 1, 1))
 
--- Upscale
-final_main:add(nn.SpatialUpSamplingNearest(2)) -- TEMP
+-- Upscale all of the previous downsamplings
+final_main:add(nn.SpatialUpSamplingNearest(sampling))
 
 -- Move to GPU
 final_main:cuda()
 
 -- TEMP test net forward with random data
-rand_data = torch.randn(512 * 50 * 50):reshape(512, 50, 50):cuda()
+rand_data = torch.randn(480 * 640):reshape(1, 480, 640)
+rand_data = rand_data:cuda()
 print ("Input shape:")
 print (rand_data:size())
 
+-- Time the propagation
+timer = torch.Timer()
+
+-- Run the image through
 out = final_main:forward(rand_data)
+
+-- Get the end time
+end_time = timer:time().real
 
 print("Out shape:")
 print(out:size())
+
+print("Time taken for forward propagation of 1 image:")
+print(end_time)
 
 -- Close the hdf5
 whole_set:close()
