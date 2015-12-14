@@ -37,6 +37,7 @@ import subprocess
 
 import pyximport; pyximport.install()
 import cython_feature_extraction
+import data_vectorize
 
 # Enforces file path
 # MOVE to shared utility
@@ -118,6 +119,9 @@ class Image_processing:
 	def __init__(self, sent_scale_factor=1):
 
 		self.scale_factor = sent_scale_factor
+
+		# TODO: make this automatic
+		self.nb_classes = 13
 		
 	# Returns bounds for image processing that avoid issues with unaligned batch sizes
 	# Bounds set as None will be automatically set
@@ -942,6 +946,17 @@ class Image_processing:
 		# Call with batch size of 1, to make each image stand alone
 		self.process_depth_diff_pickles(source_dir, target_dir, start_index = start_index, end_index = end_index, batch_size = 1, feature_list = feature_list, verbose = verbose)
 
+	# Vectorizes labels using cython for faster computation
+	def vectorize_labels(self, labels):
+
+		# This will hold the output of the vectorization
+		result_labels = np.zeros(labels.shape + (self.nb_classes,), dtype = np.uint8)
+
+		# Get the vectorization
+		data_vectorize.vectorize(labels.astype(np.uint8), result_labels)
+
+		return result_labels
+
 	# Processes the images from the source directory and places them into the target dir
 	# Takes exr images and creates a png for the rgb data and a binary file for the depth
 	# Within the target folder, creates sub folders for rgb and depth binary images
@@ -1030,13 +1045,23 @@ class Image_processing:
 	# If start_index is specified, process will only process files that are higher than the sent value
 	# If end_index is specified, process will only process files that are lower than the sent value
 	# TODO: expand to make sure that images are fully ready for use
-	def process_to_ready(self, source_dir, start_index=None, end_index=None):
+	def process_to_ready(self, source_dir, start_index=None, end_index=None, threshold = None, vectorize = None):
 
 		# Get the data as numpy arrays
 		Depth_data, RGB_data = self.process_to_np(source_dir, start_index, end_index)
 
 		# Set the labels for the data
 		labels = self.batch_get_labels(RGB_data)
+
+		# Threshold if needed
+		if threshold is not None:
+
+			Depth_data[Depth_data > threshold] = threshold
+
+		# Vectorize if needed
+		if vectorize is not None:
+
+			labels = self.vectorize_labels(labels)
 
 		# Return the data
 		return Depth_data, labels
@@ -1325,7 +1350,13 @@ class Image_processing:
 	#
 	# batch_size : int
 	# Does not affect the output file, only determines how many images will be processed at once
-	def process_to_h5(self, source_dir, target_name, start_index=None, end_index=None, batch_size=128, verbose=False):
+	#
+	# threshold : numeric
+	# If set, all values in the data will be set to this value
+	#
+	# vectorize : bool
+	# If set, the labels will be vectorized
+	def process_to_h5(self, source_dir, target_name, start_index=None, end_index=None, batch_size=128, threshold=None, vectorize=False, verbose=False):
 
 		# If end_index is not sent, set it to the largest file in the set
 		if not end_index:
@@ -1381,7 +1412,12 @@ class Image_processing:
 			data_set = h5_file.create_dataset("data", (0,) + size, maxshape=(None,) + size)
 
 			# Create the label set
-			label_set = h5_file.create_dataset("label", (0,) + size, maxshape=(None,) + size)
+			# Vectorized data will be of shape size + (nb_classes,)
+			if vectorize:
+				label_set = h5_file.create_dataset("label", (0,) + size + (self.nb_classes,), maxshape=(None,) + size + (self.nb_classes,))
+
+			else:
+				label_set = h5_file.create_dataset("label", (0,) + size, maxshape=(None,) + size)
 
 		# File is malformed, inform user and raise again
 		except KeyError:
@@ -1406,7 +1442,8 @@ class Image_processing:
 			# Get the data and labels for the batch
 			try:
 
-				data_batch, label_batch = self.process_to_np(source_dir, index, target_index)
+				#data_batch, label_batch = self.process_to_np(source_dir, index, target_index)
+				data_batch, label_batch = self.process_to_ready(source_dir, index, target_index, threshold = threshold, vectorize = vectorize)
 
 			# Index went past the end index
 			except IndexError:
@@ -1428,7 +1465,7 @@ class Image_processing:
 			else:
 
 				# Get the labels from the rgb data
-				label_batch = self.batch_get_labels(label_batch)
+				#label_batch = self.batch_get_labels(label_batch)
 
 				# Set the depth data to be 32 bit floats and add an extra dim for broadcasting
 				data_batch = data_batch.astype(np.float32)
@@ -1469,6 +1506,7 @@ class Image_processing:
 if __name__ == "__main__":
 
 	# Check correct number of arguments
+	# TODO: use argparse
 	if (len(sys.argv) < 2):
 		# Not enough arguments, print usage
 		print ("Usage: post_process.py source_dir target_dir [-s start_index -e end_index -c scale_factor -b batch_size]")

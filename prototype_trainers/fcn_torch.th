@@ -10,7 +10,8 @@ require 'hdf5'
 n_classes = 13
 
 -- Where to load data from
-load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
+--load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
+load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
 
 print("Loading data from:")
 print(load_set)
@@ -105,18 +106,19 @@ final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv6-7
 -- aka fc6-7
-fc6_7_planes = 4096
+--fc6_7_planes = 4096 -- Uses too much memory
+fc6_7_planes = 3072 -- Works on GTX 960
 
---final_main:add(nn.SpatialFullConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
---final_main:add(nn.ReLU())
---final_main:add(nn.Dropout(.5))
---final_main:add(nn.SpatialFullConvolution(fc6_7_planes, fc6_7_planes, 1, 1)) -- fc7
---final_main:add(nn.ReLU())
---final_main:add(nn.Dropout(.5))
+final_main:add(nn.SpatialFullConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
+final_main:add(nn.ReLU())
+final_main:add(nn.Dropout(.5))
+final_main:add(nn.SpatialFullConvolution(fc6_7_planes, fc6_7_planes, 1, 1)) -- fc7
+final_main:add(nn.ReLU())
+final_main:add(nn.Dropout(.5))
 
 -- output layer
---final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
-final_main:add(nn.SpatialFullConvolution(conv5_planes, n_classes, 1, 1))
+final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
+--final_main:add(nn.SpatialFullConvolution(conv5_planes, n_classes, 1, 1))
 
 -- Upscale all of the previous downsamplings
 final_main:add(nn.SpatialUpSamplingNearest(sampling))
