@@ -204,6 +204,9 @@ final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
 -- Upscale all of the previous downsamplings
 final_main:add(nn.SpatialUpSamplingNearest(sampling))
 
+-- Make all values 0 - 1
+final_main:add(nn.Sigmoid())
+
 -- Put the model together
 -- Nothing to do for this right now
 model = final_main
