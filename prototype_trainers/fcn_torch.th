@@ -220,10 +220,19 @@ os.execute("sleep " .. 10)
 
 -- Criterion, use the classic MSE for now
 criterion = nn.MSECriterion():cuda()
+--criterion = nn.CrossEntropyCriterion():cuda()
 
 -- Parameters for SGD
+--[[
 sgd_params = {
 	learningRate = 1e-2,
+	learningRateDecay = 1e-4,
+	weightDecay = 1e-3,
+	momentum = 1e-4
+}
+--]]
+sgd_params = {
+	learningRate = .5,
 	learningRateDecay = 1e-4,
 	weightDecay = 1e-3,
 	momentum = 1e-4
