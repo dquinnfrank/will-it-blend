@@ -1,6 +1,7 @@
 require 'torch'
 require 'cutorch'
 require 'cunn'
+require 'optim'
 
 require 'hdf5'
 
@@ -8,6 +9,72 @@ require 'hdf5'
 
 -- The number of output classes
 n_classes = 13
+
+-- Enumeration of the classes
+classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
+
+-- Training function
+function train()
+
+	-- For counting the data items
+	local count = 0
+
+	-- For tracking the loss of the network
+	current_loss = 0
+
+	-- Epoch
+	--epoch = epoch or 1
+
+	-- Timer
+	--local time = sys.clock()
+
+	-- Train for one epoch
+	--print("Training epoch: " .. epoch)
+
+	-- Get the shape of the data set
+	data_shape = data_set:dataspaceSize()
+	n_images = data_shape[1]
+	height = data_shape[2]
+	width = data_shape[3]
+
+	-- Go through each image one at a time
+	for i = 1, n_images do
+
+		-- Load the data item
+		local data_item = data_set:partial({i,i},{1,height},{1,width}):cuda()
+
+		-- load the vector label
+		local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
+
+		-- Closure for feval to get gradients
+		local feval = function(x_new)
+
+			--collectgarbage()
+
+			-- Reset the data
+			if x~= x_new then x:copy(x_new) end
+			dl_dx:zero()
+
+			-- Gradient descent for the image
+			local loss = criterion:forward(model:forward(data_item), label_item)
+			model:backward(data_item, criterion:backward(model.output, label_item))
+
+			return loss, dl_dx
+		end
+
+		--collectgarbage()
+
+		_, fs = optim.sgd(feval, x, sgd_params)
+
+		count = count + 1
+
+		current_loss = current_loss + fs[1]
+
+	end
+
+	return current_loss / count
+
+end
 
 -- Where to load data from
 --load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
@@ -23,9 +90,16 @@ whole_set = hdf5.open(load_set, 'r')
 data_set = whole_set:read('data')
 label_set = whole_set:read('label')
 
+print("Data shape:")
+print(data_set:dataspaceSize())
+
+print("Label shape:")
+print(label_set:dataspaceSize())
+
 -- Set the GPU to use
 cutorch.setDevice(1)
 
+print("Creating the model")
 -- The last main line convolution and pooling
 -- Starts from pool4
 final_main = nn.Sequential()
@@ -40,7 +114,8 @@ k_size = 3
 pad = torch.floor((k_size - 1)/2)
 
 -- conv1
-conv1_planes = 64
+--conv1_planes = 64
+conv1_planes = 32
 
 final_main:add(nn.SpatialConvolution(1, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_1
 final_main:add(nn.ReLU())
@@ -52,7 +127,8 @@ sampling = 2 * sampling
 final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv2
-conv2_planes = 128
+--conv2_planes = 128
+conv2_planes = 64
 
 final_main:add(nn.SpatialConvolution(conv1_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_1
 final_main:add(nn.ReLU())
@@ -64,7 +140,8 @@ sampling = 2 * sampling
 final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv3
-conv3_planes = 256
+--conv3_planes = 256
+conv3_planes = 128
 
 final_main:add(nn.SpatialConvolution(conv2_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_1
 final_main:add(nn.ReLU())
@@ -78,7 +155,8 @@ sampling = 2 * sampling
 final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv4
-conv4_planes = 512
+--conv4_planes = 512
+conv4_planes = 256
 
 final_main:add(nn.SpatialConvolution(conv3_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_1
 final_main:add(nn.ReLU())
@@ -92,7 +170,8 @@ sampling = 2 * sampling
 final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv5
-conv5_planes = 512
+--conv5_planes = 512
+conv5_planes = 256
 
 final_main:add(nn.SpatialFullConvolution(conv4_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_1
 final_main:add(nn.ReLU())
@@ -106,8 +185,10 @@ final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 
 -- conv6-7
 -- aka fc6-7
---fc6_7_planes = 4096 -- Uses too much memory
-fc6_7_planes = 3072 -- Works on GTX 960
+--fc6_7_planes = 4096 --Amount in paper, but uses too much memory
+--fc6_7_planes = 3072
+--fc6_7_planes = 1024 -- Works on GTX 960
+fc6_7_planes = 1024
 
 final_main:add(nn.SpatialFullConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
 final_main:add(nn.ReLU())
@@ -123,29 +204,93 @@ final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
 -- Upscale all of the previous downsamplings
 final_main:add(nn.SpatialUpSamplingNearest(sampling))
 
+-- Put the model together
+-- Nothing to do for this right now
+model = final_main
+
 -- Move to GPU
-final_main:cuda()
+model:cuda()
+
+print("Constructed model:")
+print(model)
+os.execute("sleep " .. 10)
+
+-- Criterion, use the classic MSE for now
+criterion = nn.MSECriterion():cuda()
+
+-- Parameters for SGD
+sgd_params = {
+	learningRate = 1e-2,
+	learningRateDecay = 1e-4,
+	weightDecay = 1e-3,
+	momentum = 1e-4
+}
+
+-- TODO what is this exactly
+x, dl_dx = model:getParameters()
 
 -- TEMP test net forward with random data
-rand_data = torch.randn(480 * 640):reshape(1, 480, 640)
-rand_data = rand_data:cuda()
-print ("Input shape:")
-print (rand_data:size())
+function rand_forward()
+	local rand_data = torch.randn(480 * 640):reshape(1, 480, 640)
+	rand_data = rand_data:cuda()
+	print ("Input shape:")
+	print (rand_data:size())
 
--- Time the propagation
+	-- Time the propagation
+	timer = torch.Timer()
+
+	-- Run the image through
+	local out = final_main:forward(rand_data)
+
+	-- Get the end time
+	end_time = timer:time().real
+
+	print("Out shape:")
+	print(out:size())
+
+	print("Time taken for forward propagation of 1 image:")
+	print(end_time)
+	require 'os'
+	os.execute("sleep " .. 10)
+	rand_data = nil
+	out = nil
+	collectgarbage(); collectgarbage()
+	print("gc")
+	os.execute("sleep " .. 10)
+end
+--print("forward")
+--rand_forward()
+--collectgarbage()
+--print("another")
+--rand_forward()
+
+-- Time the training
 timer = torch.Timer()
 
--- Run the image through
-out = final_main:forward(rand_data)
+-- Run for the specified number of epochs
+max_epochs = 10
+for epoch = 1, max_epochs do
+
+	-- Do the training
+	this_loss = train()
+
+	print("Loss at epoch " .. epoch .. ": " .. this_loss)
+
+end
+
+-- Run one training set
+--one_loss = train()
 
 -- Get the end time
 end_time = timer:time().real
 
-print("Out shape:")
-print(out:size())
+print("Training complete")
+print("Average time taken for training an epoch: " .. end_time / max_epochs)
+print("Total time: " .. end_time)
 
-print("Time taken for forward propagation of 1 image:")
-print(end_time)
+--print("Loss after one epoch:")
+--print(one_loss)
+--os.execute("sleep " .. 10)
 
 -- Close the hdf5
 whole_set:close()
