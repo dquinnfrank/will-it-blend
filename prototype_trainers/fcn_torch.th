@@ -44,7 +44,8 @@ function train()
 		local data_item = data_set:partial({i,i},{1,height},{1,width}):cuda()
 
 		-- load the vector label
-		local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
+		--local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
+		local label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
 
 		-- Closure for feval to get gradients
 		local feval = function(x_new)
@@ -78,7 +79,8 @@ end
 
 -- Where to load data from
 --load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
-load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
+--load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
+load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01_no_vect_test.hdf5"
 
 print("Loading data from:")
 print(load_set)
@@ -205,7 +207,7 @@ final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
 final_main:add(nn.SpatialUpSamplingNearest(sampling))
 
 -- Make all values 0 - 1
-final_main:add(nn.Sigmoid())
+--final_main:add(nn.Sigmoid())
 
 -- Put the model together
 -- Nothing to do for this right now
@@ -219,8 +221,8 @@ print(model)
 os.execute("sleep " .. 10)
 
 -- Criterion, use the classic MSE for now
-criterion = nn.MSECriterion():cuda()
---criterion = nn.CrossEntropyCriterion():cuda()
+--criterion = nn.MSECriterion():cuda()
+criterion = nn.CrossEntropyCriterion():cuda()
 
 -- Parameters for SGD
 --[[
@@ -235,7 +237,7 @@ sgd_params = {
 	learningRate = .5,
 	learningRateDecay = 1e-4,
 	weightDecay = 1e-3,
-	momentum = 1e-4
+	momentum = .9
 }
 
 -- TODO what is this exactly
@@ -300,9 +302,14 @@ print("Training complete")
 print("Average time taken for training an epoch: " .. end_time / max_epochs)
 print("Total time: " .. end_time)
 
+-- Save the completed model
+torch.save('test_model.dat', model)
+
 --print("Loss after one epoch:")
 --print(one_loss)
 --os.execute("sleep " .. 10)
+
+-- Do a forward propagation to see the results
 
 -- Close the hdf5
 whole_set:close()

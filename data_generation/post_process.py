@@ -1045,7 +1045,7 @@ class Image_processing:
 	# If start_index is specified, process will only process files that are higher than the sent value
 	# If end_index is specified, process will only process files that are lower than the sent value
 	# TODO: expand to make sure that images are fully ready for use
-	def process_to_ready(self, source_dir, start_index=None, end_index=None, threshold = None, vectorize = None):
+	def process_to_ready(self, source_dir, start_index=None, end_index=None, threshold = None, vectorize = False):
 
 		# Get the data as numpy arrays
 		Depth_data, RGB_data = self.process_to_np(source_dir, start_index, end_index)
@@ -1059,7 +1059,7 @@ class Image_processing:
 			Depth_data[Depth_data > threshold] = threshold
 
 		# Vectorize if needed
-		if vectorize is not None:
+		if vectorize:
 
 			labels = self.vectorize_labels(labels)
 
