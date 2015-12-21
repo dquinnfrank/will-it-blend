@@ -5,6 +5,8 @@ require 'optim'
 
 require 'hdf5'
 
+require 'StackShift'
+
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
 -- The number of output classes
@@ -46,6 +48,12 @@ function train()
 		-- load the vector label
 		--local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
 		local label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
+		local label_item = label_item:view(label_item:nElement())
+
+		--print ("d")
+		--print (data_item:size())
+		--print ("l")
+		--print (label_item:size())
 
 		-- Closure for feval to get gradients
 		local feval = function(x_new)
@@ -80,7 +88,7 @@ end
 -- Where to load data from
 --load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
 --load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
-load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01_no_vect_test.hdf5"
+load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/Easy_set_01_no_vect_test.hdf5"
 
 print("Loading data from:")
 print(load_set)
@@ -209,6 +217,9 @@ final_main:add(nn.SpatialUpSamplingNearest(sampling))
 -- Make all values 0 - 1
 --final_main:add(nn.Sigmoid())
 
+-- Reorder and reshape for the MMC criterion
+final_main:add(nn.StackShift())
+
 -- Put the model together
 -- Nothing to do for this right now
 model = final_main
@@ -218,11 +229,12 @@ model:cuda()
 
 print("Constructed model:")
 print(model)
-os.execute("sleep " .. 10)
+--os.execute("sleep " .. 10)
 
 -- Criterion, use the classic MSE for now
 --criterion = nn.MSECriterion():cuda()
-criterion = nn.CrossEntropyCriterion():cuda()
+--criterion = nn.CrossEntropyCriterion():cuda()
+criterion = nn.MultiMarginCriterion():cuda()
 
 -- Parameters for SGD
 --[[
