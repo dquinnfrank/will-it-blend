@@ -15,6 +15,9 @@ n_classes = 13
 -- Enumeration of the classes
 classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
 
+-- Set the default tensor type for cpu use
+torch.setdefaulttensortype("torch.FloatTensor")
+
 -- Training function
 function train()
 
@@ -40,20 +43,18 @@ function train()
 	width = data_shape[3]
 
 	-- Go through each image one at a time
-	for i = 1, n_images do
+	for i = 1, n_images - 1 do
 
 		-- Load the data item
 		local data_item = data_set:partial({i,i},{1,height},{1,width}):cuda()
+		--local data_item = data_set:partial({i,i},{1,height},{1,width})
 
 		-- load the vector label
 		--local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
 		local label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
-		local label_item = label_item:view(label_item:nElement())
-
-		--print ("d")
-		--print (data_item:size())
-		--print ("l")
-		--print (label_item:size())
+		--local label_item = label_item:view(label_item:nElement())
+		--label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze()
+		label_item = label_item:view(label_item:nElement()) + 1
 
 		-- Closure for feval to get gradients
 		local feval = function(x_new)
@@ -64,8 +65,16 @@ function train()
 			if x~= x_new then x:copy(x_new) end
 			dl_dx:zero()
 
+			-- Run the forward input
+			output = model:forward(data_item)
+
+			--print ("d")
+			--print (output:size())
+			--print ("l")
+			--print (label_item:size())
+
 			-- Gradient descent for the image
-			local loss = criterion:forward(model:forward(data_item), label_item)
+			local loss = criterion:forward(model.output, label_item)
 			model:backward(data_item, criterion:backward(model.output, label_item))
 
 			return loss, dl_dx
