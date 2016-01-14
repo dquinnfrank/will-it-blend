@@ -77,7 +77,7 @@ for image_index in range(offset, offset + number_of_images):
 	# Create a random pose
 	person.random_pose()
 
-	# Foe the harder data set, add rotation to the person and occulsion
+	# For the harder data set, add rotation to the person and a simple occulsion
 	if data_set_type == 1:
 
 		# Create a random rotation
@@ -85,6 +85,11 @@ for image_index in range(offset, offset + number_of_images):
 
 		# Add occulsion
 		random_occulsion(debug_flag)
+
+	# For the next hardest data set, use clutter objects
+	if data_set_type == 2:
+
+		pass
 
 	# Save the key vertices
 	person.save_key_verts(save_path.rstrip("/") + "_verts/" + str(image_index).zfill(12))

@@ -9,8 +9,14 @@ require 'StackShift'
 
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
+-- Network size configurations
+-- TODO: make these automatic
 -- The number of output classes
 n_classes = 13
+
+-- The size of the images being processed
+height = 480
+width = 640
 
 -- Enumeration of the classes
 classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
@@ -221,13 +227,22 @@ final_main:add(nn.SpatialFullConvolution(fc6_7_planes, n_classes, 1, 1))
 --final_main:add(nn.SpatialFullConvolution(conv5_planes, n_classes, 1, 1))
 
 -- Upscale all of the previous downsamplings
-final_main:add(nn.SpatialUpSamplingNearest(sampling))
+--final_main:add(nn.SpatialUpSamplingNearest(sampling))
+final_main:add(nn.SpatialFullConvolution(n_classes, n_classes, 2*sampling, 2*sampling, sampling, sampling, sampling/2, sampling/2))
 
 -- Make all values 0 - 1
 --final_main:add(nn.Sigmoid())
 
 -- Reorder and reshape for the MMC criterion
-final_main:add(nn.StackShift())
+--final_main:add(nn.StackShift())
+
+final_main:add(nn.Reshape(height * width, n_classes))
+
+-- For using ClassNLL
+-- Needs LogSoftMax layer
+-- Needs to be reshaped to width * height, n_classes
+-- WARNING: the network is only suitable for running one image at a time because of this
+final_main:add(nn.LogSoftMax())
 
 -- Put the model together
 -- Nothing to do for this right now
@@ -243,7 +258,8 @@ print(model)
 -- Criterion, use the classic MSE for now
 --criterion = nn.MSECriterion():cuda()
 --criterion = nn.CrossEntropyCriterion():cuda()
-criterion = nn.MultiMarginCriterion():cuda()
+--criterion = nn.MultiMarginCriterion():cuda()
+criterion = nn.ClassNLLCriterion():cuda()
 
 -- Parameters for SGD
 --[[

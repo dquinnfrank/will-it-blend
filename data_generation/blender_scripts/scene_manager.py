@@ -5,6 +5,9 @@ import math
 import numpy as np
 import itertools
 
+# Save the scene object for easy of use later
+scene = bpy.data.scenes['Scene']
+
 # Constants for all classes
 
 # Define list access: X, Y, Z = 0, 1, 2
@@ -15,6 +18,16 @@ Z = 2
 # Define list access: lower, upper = 0, 1
 LOWER = 0
 UPPER = 1
+
+# Deselects all objects
+# Prevents unwanted deletions
+def deselect_all():
+
+	# Go through each object in the default scene
+	for obj in scene.objects:
+
+		# Make sure the object is not selected
+		obj.select = False
 
 # Handles a human mesh
 # Mesh must be exported from makehuman
@@ -219,13 +232,13 @@ class Human:
 	def update_position_info(self):
 
 		# Update the scene to have the most recent information
-		bpy.data.scenes['Scene'].update()
+		scene.update()
 
 		# Set the original mesh
 		original = bpy.data.objects[self.mesh_name + ":Body"]
 
 		# Copy the mesh with modifiers
-		copy = original.to_mesh(scene=bpy.data.scenes['Scene'], apply_modifiers=True, settings='PREVIEW')
+		copy = original.to_mesh(scene=scene, apply_modifiers=True, settings='PREVIEW')
 
 		# Apply the world transformation
 		#copy.transform(original.matrix_world)
@@ -475,13 +488,13 @@ class Human:
 			]
 
 		# Update the scene to have the most recent information
-		bpy.data.scenes['Scene'].update()
+		scene.update()
 
 		# Set the original mesh
 		original = bpy.data.objects[self.mesh_name + ":Body"]
 
 		# Copy the mesh with modifiers
-		copy = original.to_mesh(scene=bpy.data.scenes['Scene'], apply_modifiers=True, settings='PREVIEW')
+		copy = original.to_mesh(scene=scene, apply_modifiers=True, settings='PREVIEW')
 
 		# Save the vertex locations as x,y,z four to a row
 		with open(save_name + ".txt", "w") as save_file:
@@ -505,6 +518,78 @@ class Human:
 
 # End of Human
 
+# Handles non person objects in the scene
+class Clutter:
+
+	# The area where objects can be active
+	# Uses the XYZ indices defined above
+	active_area = [
+			# X
+			(-1.25, 1.25),
+			# Y
+			(-1.5, 1.5),
+			# Z
+			(-1.0, 1.0)
+			]
+
+	# A list of created object names
+	# Used to keep track of what this class is responsible for in the scene
+	current_objects = []
+
+	# Constructor
+	#
+	# object_range : [min, max]
+	# A number of random objects in this range will be choosen for each image
+	def __init__(self, object_range=(3,6), debug_flag=False):
+
+		# Save the object range
+		self.object_range = object_range
+
+		# Save the debug_flag
+		self.debug_flag = debug_flag
+
+	# Gives a random location within the active area
+	def random_location(self):
+
+		return (random.uniform(active_area[X][LOWER], active_area[X][UPPER]), random.uniform(active_area[Y][LOWER], active_area[Y][UPPER]), random.uniform(active_area[Z][LOWER], active_area[Z][UPPER]))
+
+	# Gives a random rotation
+	# No restrictions on rotations
+	def random_rotation(self):
+
+		return (random.uniform(0.0,360.0),random.uniform(0.0,360.0),random.uniform(0.0,360.0))
+
+	# Adds clutter to the scene
+	# Will generate a random number of random objects from the total possible objects
+	def add_clutter(self):
+
+		pass
+
+	# Adds a sphere to the scene
+	def add_sphere(self):
+
+		# Deselect all other objects
+		deselect_all()
+
+		# The range of the sphere radius
+		radius_range = (.1, .25)
+
+		# Get a random size
+		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+
+		# Get a random location within the active area
+		location = self.random_location()
+
+		# Create a sphere within the active area
+		bpy.ops.mesh.primitive_uv_sphere_add(size = size, location = location)
+
+		# Get the name of the new object
+		name = scene.objects.active.name
+
+		# Add it to the responsibility list
+		current_objects.append(name)
+
+# TODO: move into the clutter class
 # Moves the occulsion square to a random amount of occulsion
 # Creates the object if it is not already present
 def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False):
@@ -521,6 +606,7 @@ def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False)
 
 	# Check for object already present in the scene
 	try:
+		# TODO: will bug if a plane is added before this function is called
 		occulsion_square = bpy.data.objects["Plane"]
 
 	# Object was not in the scene
@@ -553,7 +639,7 @@ def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False)
 # Uses openexr to save the depth of the image
 # Pass path, but do not pass extension
 # Default resolution is 640x480
-def save_image(save_name, debug_flag=False):
+def save_image(save_name, resolution=(640,480) , debug_flag=False):
 
 	# DEBUG PRINT
 	if(debug_flag):
@@ -561,8 +647,13 @@ def save_image(save_name, debug_flag=False):
 		print("Saving image as: " + save_name)
 		print("END DEBUG MESSAGE\n")
 
+	# Set the resolution of the image
+	scene.rander.resolution_x = resolution[X]
+	scene.render.resolution_y = resolution[Y]
+	scene.render.resolution_percentage = 100
+
 	# Set the image name
-	bpy.data.scenes['Scene'].render.filepath = save_name
+	scene.render.filepath = save_name
 
 	# Render and save the image
 	bpy.ops.render.render(write_still=True)
