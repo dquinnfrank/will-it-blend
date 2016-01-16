@@ -29,6 +29,27 @@ def deselect_all():
 		# Make sure the object is not selected
 		obj.select = False
 
+# Removes an object
+def remove_object(object_name):
+
+	# Make sure that nothing we don't want is selected
+	deselect_all()
+
+	# Select the target object
+	try:
+
+		bpy.data.objects[object_name].select = True
+
+	# Object doesn't exist, so it doesn't need deleting
+	except KeyError:
+
+		pass
+
+	# Remove the object
+	else:
+
+		bpy.ops.object.delete()
+
 # Handles a human mesh
 # Mesh must be exported from makehuman
 # Mesh must use rigify
@@ -557,13 +578,50 @@ class Clutter:
 	# No restrictions on rotations
 	def random_rotation(self):
 
-		return (random.uniform(0.0,360.0),random.uniform(0.0,360.0),random.uniform(0.0,360.0))
+		return (random.uniform(0.0,math.pi * 2),random.uniform(0.0,math.pi * 2),random.uniform(0.0,math.pi * 2))
 
-	# Adds clutter to the scene
+	# Adds clutter to the scene, removes previous clutter objects
 	# Will generate a random number of random objects from the total possible objects
 	def add_clutter(self):
 
-		pass
+		# Make sure that no objects are selected
+		deselect_all()
+
+		# Go through the list of all clutter objects and remove each one
+		for clutter_object in self.current_objects:
+
+			remove_object(clutter_object)
+
+		# Set the number of objects to create
+		num_to_create = random.randint(self.object_range[LOWER], self.object_range[UPPER])
+
+		# Create that many objects
+		for object_index in range(num_to_create):
+
+			# Choose an type of object at random
+			rand_type = random.randint(0,2)
+
+			# Make the specified object
+
+			# Sphere
+			if rand_type == 0:
+
+				self.add_sphere()
+
+			# Cone
+			elif rand_type == 1:
+
+				self.add_cone()
+
+			# Rectangle
+			elif rand_type == 2:
+
+				self.add_rectangle()
+
+			# Not supposed to be here
+			else:
+
+				pass
 
 	# Adds a sphere to the scene
 	def add_sphere(self):
@@ -589,10 +647,52 @@ class Clutter:
 		# Add it to the responsibility list
 		current_objects.append(name)
 
+	# Adds a cone to the scene
+	def add_cone(self):
+
+		# Deselect all other objects
+		deselect_all()
+
+		# The potential radius of each end of the cone
+		radius_range = (0.0, .07)
+
+		# The potential length of the cone
+		length_range = (.2, 1)
+
+		# Get random dimensions for the object
+		radius1 = random.uniform(radius_range[LOWER], radius_range[UPPER])
+		radius2 = random.uniform(radius_range[LOWER], radius_range[UPPER])
+		depth = random.uniform(length_range[LOWER], length_range[UPPER])
+
+		# Get a random location within the active area
+		location = self.random_location()
+
+		# Get a random rotation
+		rotation = self.random_rotation()
+
+		# Create the cone
+		bpy.ops.mesh.primitive_cone_add(radius1=radius1, radius2=radius2, depth=depth, location=location, rotation=rotation)
+
+		# Get the name of the new object
+		name = scene.objects.active.name
+
+		# Add it to the responsibility list
+		current_objects.append(name)
+
+	# Adds a rectangle to the scene
+	def add_rectangle(self):
+
+		pass
+
 # TODO: move into the clutter class
 # Moves the occulsion square to a random amount of occulsion
 # Creates the object if it is not already present
 def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False):
+
+	# The name of the large occulder is "Billboard"
+
+	# Deselect every thing else
+	deselect_all()
 
 	# Get random location
 	# y location is fixed at -2 so that it will always be blocking the person
@@ -606,8 +706,8 @@ def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False)
 
 	# Check for object already present in the scene
 	try:
-		# TODO: will bug if a plane is added before this function is called
-		occulsion_square = bpy.data.objects["Plane"]
+
+		occulsion_square = bpy.data.objects["Billboard"]
 
 	# Object was not in the scene
 	# Create it
@@ -615,6 +715,9 @@ def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False)
 
 		# Create the plane object
 		bpy.ops.mesh.primitive_plane_add(radius=square_radius, location=target_location, rotation=target_rotation)
+
+		# Name it
+		scene.objects.active.name = 
 
 	# Object is already present
 	# Move it to the target rotation
