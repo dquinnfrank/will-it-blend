@@ -544,11 +544,21 @@ class Clutter:
 
 	# The area where objects can be active
 	# Uses the XYZ indices defined above
+	"""
 	active_area = [
 			# X
 			(-1.25, 1.25),
 			# Y
 			(-1.5, 1.5),
+			# Z
+			(-1.0, 1.0)
+			]
+	"""
+	active_area = [
+			# X
+			(-.75, .75),
+			# Y
+			(-.75, .75),
 			# Z
 			(-1.0, 1.0)
 			]
@@ -561,7 +571,7 @@ class Clutter:
 	#
 	# object_range : [min, max]
 	# A number of random objects in this range will be choosen for each image
-	def __init__(self, object_range=(3,6), debug_flag=False):
+	def __init__(self, object_range=(10,30), debug_flag=False):
 
 		# Save the object range
 		self.object_range = object_range
@@ -569,10 +579,18 @@ class Clutter:
 		# Save the debug_flag
 		self.debug_flag = debug_flag
 
+	# Removes all objects this class is responsible for
+	def remove_all_objects(self):
+
+		# Go through the list of all clutter objects and remove each one
+		for clutter_object in self.current_objects:
+
+			remove_object(clutter_object)
+
 	# Gives a random location within the active area
 	def random_location(self):
 
-		return (random.uniform(active_area[X][LOWER], active_area[X][UPPER]), random.uniform(active_area[Y][LOWER], active_area[Y][UPPER]), random.uniform(active_area[Z][LOWER], active_area[Z][UPPER]))
+		return (random.uniform(self.active_area[X][LOWER], self.active_area[X][UPPER]), random.uniform(self.active_area[Y][LOWER], self.active_area[Y][UPPER]), random.uniform(self.active_area[Z][LOWER], self.active_area[Z][UPPER]))
 
 	# Gives a random rotation
 	# No restrictions on rotations
@@ -584,13 +602,15 @@ class Clutter:
 	# Will generate a random number of random objects from the total possible objects
 	def add_clutter(self):
 
+		# The number of different types of objects available
+		# TODO: use a list of possible functions?
+		total_object_types = 4
+
 		# Make sure that no objects are selected
 		deselect_all()
 
-		# Go through the list of all clutter objects and remove each one
-		for clutter_object in self.current_objects:
-
-			remove_object(clutter_object)
+		# Get rid of all current clutter objects
+		self.remove_all_objects()
 
 		# Set the number of objects to create
 		num_to_create = random.randint(self.object_range[LOWER], self.object_range[UPPER])
@@ -599,7 +619,7 @@ class Clutter:
 		for object_index in range(num_to_create):
 
 			# Choose an type of object at random
-			rand_type = random.randint(0,2)
+			rand_type = random.randint(0, total_object_types)
 
 			# Make the specified object
 
@@ -608,20 +628,20 @@ class Clutter:
 
 				self.add_sphere()
 
-			# Cone
+			# Cube
 			elif rand_type == 1:
 
-				self.add_cone()
+				self.add_cube()
 
-			# Rectangle
+			# Plane
 			elif rand_type == 2:
 
-				self.add_rectangle()
+				self.add_plane()
 
-			# Not supposed to be here
-			else:
+			# Cone
+			elif rand_type == 3:
 
-				pass
+				self.add_cone()
 
 	# Adds a sphere to the scene
 	def add_sphere(self):
@@ -645,7 +665,61 @@ class Clutter:
 		name = scene.objects.active.name
 
 		# Add it to the responsibility list
-		current_objects.append(name)
+		self.current_objects.append(name)
+
+	# Adds a cube to the scene
+	def add_cube(self):
+
+		# Deselect all other objects
+		deselect_all()
+
+		# The range of the cube radius
+		radius_range = (.1, .25)
+
+		# Get a random size
+		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+
+		# Get a random location within the active area
+		location = self.random_location()
+
+		# Get a random rotation
+		rotation = self.random_rotation()
+
+		# Create a sphere within the active area
+		bpy.ops.mesh.primitive_cube_add(radius = size, location = location, rotation = rotation)
+
+		# Get the name of the new object
+		name = scene.objects.active.name
+
+		# Add it to the responsibility list
+		self.current_objects.append(name)
+
+	# Adds a plane (geometric) to the scene
+	def add_plane(self):
+
+		# Deselect all other objects
+		deselect_all()
+
+		# The range of the plane radius
+		radius_range = (.1, .25)
+
+		# Get a random size
+		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+
+		# Get a random location within the active area
+		location = self.random_location()
+
+		# Get a random rotation
+		rotation = self.random_rotation()
+
+		# Create a sphere within the active area
+		bpy.ops.mesh.primitive_plane_add(radius = size, location = location, rotation = rotation)
+
+		# Get the name of the new object
+		name = scene.objects.active.name
+
+		# Add it to the responsibility list
+		self.current_objects.append(name)
 
 	# Adds a cone to the scene
 	def add_cone(self):
@@ -654,7 +728,7 @@ class Clutter:
 		deselect_all()
 
 		# The potential radius of each end of the cone
-		radius_range = (0.0, .07)
+		radius_range = (0.01, .1)
 
 		# The potential length of the cone
 		length_range = (.2, 1)
@@ -677,12 +751,7 @@ class Clutter:
 		name = scene.objects.active.name
 
 		# Add it to the responsibility list
-		current_objects.append(name)
-
-	# Adds a rectangle to the scene
-	def add_rectangle(self):
-
-		pass
+		self.current_objects.append(name)
 
 # TODO: move into the clutter class
 # Moves the occulsion square to a random amount of occulsion
@@ -717,7 +786,7 @@ def random_occulsion(square_radius=.5, z_min=-.75, z_max=-.40, debug_flag=False)
 		bpy.ops.mesh.primitive_plane_add(radius=square_radius, location=target_location, rotation=target_rotation)
 
 		# Name it
-		scene.objects.active.name = 
+		scene.objects.active.name = "Billboard"
 
 	# Object is already present
 	# Move it to the target rotation
@@ -751,7 +820,7 @@ def save_image(save_name, resolution=(640,480) , debug_flag=False):
 		print("END DEBUG MESSAGE\n")
 
 	# Set the resolution of the image
-	scene.rander.resolution_x = resolution[X]
+	scene.render.resolution_x = resolution[X]
 	scene.render.resolution_y = resolution[Y]
 	scene.render.resolution_percentage = 100
 
