@@ -2,6 +2,7 @@ require 'torch'
 require 'cutorch'
 require 'cunn'
 require 'optim'
+require 'xlua'
 
 require 'hdf5'
 
@@ -51,6 +52,10 @@ function train()
 	-- Go through each image one at a time
 	for i = 1, n_images - 1 do
 
+		io.write("\rWorking on image " .. i)
+
+		collectgarbage()
+
 		-- Load the data item
 		local data_item = data_set:partial({i,i},{1,height},{1,width}):cuda()
 		--local data_item = data_set:partial({i,i},{1,height},{1,width})
@@ -90,20 +95,80 @@ function train()
 
 		_, fs = optim.sgd(feval, x, sgd_params)
 
+		io.write(" loss " .. fs[1])
+		io.flush()
+
 		count = count + 1
 
 		current_loss = current_loss + fs[1]
 
+		-- Every 5000 images, do a temp save and test the model
+		if i % 5000 == 0 then
+
+			test()
+
+			torch.save('temp.dat', model)
+
+		end
+
 	end
 
+	io.write("\n")
+
 	return current_loss / count
+
+end
+
+-- Test function
+function test()
+
+	-- Total number of images being tested
+	local test_im_total = test_set:dataspaceSize()[1]
+
+	-- Set to evaluate to get production mode
+	model:evaluate()
+
+	-- Go through each image in the test set
+	for i = 1, test_im_total do
+
+		-- Progress bar
+		xlua.progress(i, test_im_total)
+
+		-- Get an image
+		local data_item = test_set:partial({i,i},{1,height},{1,width}):cuda()
+
+		-- load the vector label
+		local label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
+		label_item = label_item:view(label_item:nElement()) + 1
+
+		-- Get the forward prediction of the log probabilities
+		local prediction_log_probs = model:forward(data_item)
+
+		-- Go through each pixel
+		-- TODO: More efficient way?
+		for j = 1, prediction_log_probs:size()[1] do
+
+			-- Get the label that this prediction corresponds to
+			local ignore, prediction = torch.max(prediction_log_probs[j], 1)
+
+			-- Update the confusion matrix
+			confusion:add(prediction, label_item)
+
+		end
+
+	end
+
+	-- Show the confusion matrix
+	print("Confusion_matrix")
 
 end
 
 -- Where to load data from
 --load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
 --load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
-load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/Easy_set_01_no_vect_test.hdf5"
+--load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/Easy_set_01_no_vect_test.hdf5"
+
+load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_threshold.hdf5"
 
 print("Loading data from:")
 print(load_set)
@@ -120,6 +185,19 @@ print(data_set:dataspaceSize())
 
 print("Label shape:")
 print(label_set:dataspaceSize())
+
+-- Test data
+test_name = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5"
+
+print("Loading test set from:")
+print(test_name)
+
+-- Open the test set
+whole_test_set = hdf5.open(test_name, 'r')
+
+-- Get the handles for the test data and labels
+test_set = whole_test_set:read('data')
+test_label_set = whole_test_set:read('label')
 
 -- Set the GPU to use
 cutorch.setDevice(1)
@@ -326,6 +404,9 @@ for epoch = 1, max_epochs do
 	this_loss = train()
 
 	print("Loss at epoch " .. epoch .. ": " .. this_loss)
+
+	-- Do a test
+	test()
 
 end
 
