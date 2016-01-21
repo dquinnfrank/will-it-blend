@@ -33,12 +33,14 @@ def deselect_all():
 def remove_object(object_name):
 
 	# Make sure that nothing we don't want is selected
-	deselect_all()
+	#deselect_all()
 
 	# Select the target object
 	try:
 
-		bpy.data.objects[object_name].select = True
+		#bpy.data.objects[object_name].select = True
+
+		to_delete = scene.objects[object_name]
 
 	# Object doesn't exist, so it doesn't need deleting
 	except KeyError:
@@ -48,7 +50,11 @@ def remove_object(object_name):
 	# Remove the object
 	else:
 
-		bpy.ops.object.delete()
+		#bpy.ops.object.delete()
+
+		scene.objects.unlink(to_delete)
+
+		bpy.data.objects.remove(to_delete)
 
 # Handles a human mesh
 # Mesh must be exported from makehuman
@@ -586,6 +592,9 @@ class Clutter:
 		for clutter_object in self.current_objects:
 
 			remove_object(clutter_object)
+
+		# Reset object list
+		self.current_objects = []
 
 	# Gives a random location within the active area
 	def random_location(self):
