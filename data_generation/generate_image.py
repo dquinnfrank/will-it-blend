@@ -1,5 +1,6 @@
 # Import the human class
 from scene_manager import Human
+from scene_manager import Clutter
 from scene_manager import save_image
 from scene_manager import random_occulsion
 
@@ -71,6 +72,9 @@ print("Creating a person")
 person = Human(path, "neutral_person", debug_flag)
 print("Person created")
 
+# Create the clutter object class
+clutter = Clutter(debug_flag=debug_flag)
+
 # Generate the specified number of images
 for image_index in range(offset, offset + number_of_images):
 
@@ -79,20 +83,25 @@ for image_index in range(offset, offset + number_of_images):
 
 	# For the harder data set, add rotation to the person and a simple occulsion
 	if data_set_type == 1:
+		print ("data set 1")
 
 		# Create a random rotation
 		person.random_rotation()
 
 		# Add occulsion
-		random_occulsion(debug_flag)
+		random_occulsion(debug_flag=debug_flag)
 
 	# For the next hardest data set, use clutter objects
 	if data_set_type == 2:
 
-		pass
+		# Create a random rotation
+		person.random_rotation()
+
+		# Add clutter objects
+		clutter.add_clutter()
 
 	# Save the key vertices
 	person.save_key_verts(save_path.rstrip("/") + "_verts/" + str(image_index).zfill(12))
 
 	# Save the image
-	save_image(save_path + str(image_index).zfill(12), debug_flag)
+	save_image(os.path.join(save_path,str(image_index).zfill(12)), debug_flag=debug_flag)
