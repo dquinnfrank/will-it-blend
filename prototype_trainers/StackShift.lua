@@ -1,5 +1,5 @@
 -- This layer will take input from a convolutional net and make it suitable for use with the Multi Margin criterion
--- For forward propagations, takes shape (batch_size, feature_planes, height, width) and turns it into (batch_size, height * width, feature_planes)
+-- For forward propagations, takes shape (feature_planes, height, width) and turns it into (height * width, feature_planes)
 -- Backwards will do the reverse of this
 
 -- WARNING: must call forward at least once before calling backward

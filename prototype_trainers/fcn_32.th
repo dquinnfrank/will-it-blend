@@ -6,7 +6,10 @@ require 'xlua'
 
 require 'hdf5'
 
---require 'StackShift'
+require 'StackShift'
+
+-- The name to save this model as
+save_name = 'fcn_32_easy'
 
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
@@ -26,11 +29,18 @@ classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
 torch.setdefaulttensortype("torch.FloatTensor")
 
 -- Training function
-function train()
+function train(checkpoint)
+
+	-- Make sure the model is in training mode
+	model:training()
 
 	-- How often the network will stop for testing and saving
 	-- Set to negative for no checkpoints
-	checkpoint = 1000
+	checkpoint = checkpoint or 5000
+
+	save_name = save_name or 'fcn_32'
+
+	-- The amount of images to check at each checkpoint
 
 	-- For counting the data items
 	local count = 0
@@ -53,13 +63,10 @@ function train()
 
 		-- Load the data item
 		local data_item = data_set:partial({i,i},{1,height},{1,width}):cuda()
-		--local data_item = data_set:partial({i,i},{1,height},{1,width})
 
 		-- load the label
-		--local label_item = label_set:partial({i,i}, {1,height}, {1,width}, {1,n_classes}):cuda()
+
 		local label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
-		--local label_item = label_item:view(label_item:nElement())
-		--label_item = label_set:partial({i,i}, {1,height}, {1,width}):squeeze()
 
 		label_item = label_item:view(label_item:nElement()) + 1
 
@@ -95,7 +102,7 @@ function train()
 			test(3)
 			model:training()
 
-			torch.save('temp.dat', model)
+			torch.save(save_name .. '_temp.dat', model)
 
 		end
 
@@ -127,7 +134,6 @@ function test(stop, start)
 	end
 
 	-- The confusion matrix
-	--local confusion = optim.ConfusionMatrix(13)
 	local confusion = optim.ConfusionMatrix({"Non-person", "Head_L", "Head_R", "Torso_L", "Torso_R", "Upper_arm_L", "Upper_arm_R", "Lower_arm_L", "Lower_arm_R", "Upper_leg_L", "Upper_leg_R", "Lower_leg_L", "Lower_Leg_R"})
 
 	-- Total number of images being tested
@@ -146,7 +152,7 @@ function test(stop, start)
 		-- Get an image
 		local data_item = test_set:partial({i,i},{1,height},{1,width}):cuda()
 
-		-- load the vector label
+		-- load the label
 		local label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
 		label_item = label_item:view(label_item:nElement()) + 1
 
@@ -167,9 +173,60 @@ function test(stop, start)
 	print("")
 	print(confusion)
 
-	-- Show the biases of the Deconvolution layer
-	print("Bias of upscaling layer")
-	print(model:get(38).bias)
+	return confusion
+
+end
+
+-- Saves example images from the test set as hdf5 files
+function save_image_examples(stop, start)
+
+	print("")
+	print("Getting test images")
+
+	if not start or start == -1 then
+
+		start = 1
+
+	end
+
+	if not stop or stop == -1 then
+
+		stop = test_set:dataspaceSize()[1]
+
+	end
+
+	-- hdf5 save file
+	hdf5_file = hdf5.open(save_name .. "_ex_ims.hdf5", 'w')
+
+	-- Set to evaluate to get production mode
+	model:evaluate()
+
+	-- Go through each image in the test set
+	for i = start, stop do
+
+		-- Progress bar
+		--xlua.progress(i, test_im_total)
+		io.write("\rWorking on image " .. i .. " of " .. stop - start + 1)
+
+		-- Get an image
+		local data_item = test_set:partial({i,i},{1,height},{1,width}):cuda()
+
+		-- load the label
+		local label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
+		label_item = label_item:view(label_item:nElement()) + 1
+
+		-- Get the forward prediction of the log probabilities
+		local prediction_log_probs = model:forward(data_item)
+
+		-- Get the class of each pixel
+		local ignore, predictions = torch.max(prediction_log_probs, 2)
+		predictions = predictions:squeeze():type('torch.FloatTensor')
+		label_item = label_item:type('torch.FloatTensor')
+
+	end
+
+	-- Close the file
+	hdf5_file.close()
 
 end
 
@@ -314,15 +371,14 @@ final_main:add(nn.Dropout(.5))
 final_main:add(nn.SpatialConvolution(fc6_7_planes, n_classes, 1, 1))
 
 -- Upscale all of the previous downsamplings
---final_main:add(nn.SpatialUpSamplingNearest(sampling))
 final_main:add(nn.SpatialFullConvolution(n_classes, n_classes, 2*sampling, 2*sampling, sampling, sampling, sampling/2, sampling/2))
 
-final_main:add(nn.Reshape(height * width, n_classes))
+-- Reorder and reshape from (n_classes, height, width) to (height * width, n_classes)
+final_main:add(nn.StackShift())
 
 -- For using ClassNLL
 -- Needs LogSoftMax layer
 -- Needs to be reshaped to width * height, n_classes
--- WARNING: the network is only suitable for running one image at a time because of this
 final_main:add(nn.LogSoftMax())
 
 -- Put the model together
@@ -334,20 +390,23 @@ model:cuda()
 
 print("Constructed model:")
 print(model)
---os.execute("sleep " .. 10)
 
 -- Using Negative Log Likelihood
 criterion = nn.ClassNLLCriterion():cuda()
 
 -- Parameters for SGD
 
+-- Very slow
+--[[
 sgd_params = {
 	learningRate = 1e-2,
 	learningRateDecay = 1e-4,
 	weightDecay = 1e-3,
 	momentum = 1e-4
 }
+--]]
 
+-- Aggressive, but not very accurate
 --[[
 sgd_params = {
 	learningRate = .5,
@@ -357,33 +416,41 @@ sgd_params = {
 }
 --]]
 
+-- Good middle ground, high initial learning rate that decays quickly
+sgd_params = {
+	learningRate = .1,
+	learningRateDecay = .001,
+	weightDecay = .0001,
+	momentum = .5
+}
+
 -- TODO what is this exactly
 x, dl_dx = model:getParameters()
-
--- Time the training
-timer = torch.Timer()
 
 -- Run for the specified number of epochs
 max_epochs = 10
 for epoch = 1, max_epochs do
 
+	-- Time the epoch
+	timer = torch.Timer()
+
 	-- Do the training
 	this_loss = train()
 
+	-- Get the end time
+	end_time = timer:time().real
+
 	print("Loss at epoch " .. epoch .. ": " .. this_loss)
+	print("Time taken: " .. end_time)
 
 	-- Do a test
 	test()
-	model:training()
 
 end
 
--- Get the end time
-end_time = timer:time().real
-
 print("Training complete")
-print("Average time taken for training an epoch: " .. end_time / max_epochs)
-print("Total time: " .. end_time)
+--print("Average time taken for training an epoch: " .. end_time / max_epochs)
+--print("Total time: " .. end_time)
 
 -- Save the completed model
 torch.save('test_model.dat', model)
