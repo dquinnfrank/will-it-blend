@@ -102,7 +102,10 @@ function train(checkpoint)
 			test(3)
 			model:training()
 
+			# Save the model on the cpu, to prevent issues when loading
+			model:float()
 			torch.save(save_name .. '_temp.dat', model)
+			model:cuda()
 
 		end
 
@@ -178,31 +181,35 @@ function test(stop, start)
 end
 
 -- Saves example images from the test set as hdf5 files
-function save_image_examples(stop, start)
+function save_image_examples(ex_stop, ex_start)
 
 	print("")
 	print("Getting test images")
 
-	if not start or start == -1 then
+	if not ex_start or ex_start == -1 then
 
-		start = 1
+		ex_start = 1
 
 	end
 
-	if not stop or stop == -1 then
+	if not ex_stop or ex_stop == -1 then
 
-		stop = test_set:dataspaceSize()[1]
+		ex_stop = test_set:dataspaceSize()[1]
 
 	end
 
 	-- hdf5 save file
-	hdf5_file = hdf5.open(save_name .. "_ex_ims.hdf5", 'w')
+	local hdf5_file = hdf5.open(save_name .. "_ex_ims.hdf5", 'w')
 
 	-- Set to evaluate to get production mode
 	model:evaluate()
 
+	-- Make a tensor with the shape (n_images, height, width)
+	local ex_images = torch.Tensor(stop - start, height, width)
+
 	-- Go through each image in the test set
-	for i = start, stop do
+	local count = 1
+	for i = ex_start, ex_stop do
 
 		-- Progress bar
 		--xlua.progress(i, test_im_total)
@@ -223,10 +230,18 @@ function save_image_examples(stop, start)
 		predictions = predictions:squeeze():type('torch.FloatTensor')
 		label_item = label_item:type('torch.FloatTensor')
 
+		-- Set the correct index in the output tensor
+		ex_images[count] = label_item
+
+		count = count + 1
+
 	end
 
+	-- Write the tensor to the file
+	hdf5_file:write('batch', ex_images)
+
 	-- Close the file
-	hdf5_file.close()
+	hdf5_file:close()
 
 end
 
@@ -452,8 +467,10 @@ print("Training complete")
 --print("Average time taken for training an epoch: " .. end_time / max_epochs)
 --print("Total time: " .. end_time)
 
--- Save the completed model
-torch.save('test_model.dat', model)
+-- Save the completed model on the cpu to avoid loading issues
+model:float()
+torch.save(save_name .. '.dat', model)
+model:cuda()
 
 -- Close the hdf5
 whole_set:close()
