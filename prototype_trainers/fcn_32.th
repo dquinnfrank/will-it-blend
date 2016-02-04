@@ -8,10 +8,72 @@ require 'hdf5'
 
 require 'StackShift'
 
--- The name to save this model as
-save_name = 'fcn_32_easy'
-
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
+
+-- Splits strings. From: http://stackoverflow.com/questions/1426954/split-string-in-lua
+function string_split(inputstr, sep)
+        if sep == nil then
+                sep = "%s"
+        end
+        local t={} ; i=1
+        for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+                t[i] = str
+                i = i + 1
+        end
+        return t
+end
+
+-- Level of output
+-- TODO: make this part of the config file
+output_level = 2
+
+-- Get the file to use, if there is none use a default
+file_name = arg[1] or "default.txt"
+print("Using configuration from file: " .. file_name)
+
+-- Open the config file
+config_file = io.open(file_name, 'rb')
+
+-- This table stores the parsed arguments
+config_table = {}
+-- WARNING: assumes all required values are present
+-- Required keys
+-- save_name
+-- data_name
+-- test_name
+
+-- Go through each line in the file
+for line in config_file:lines() do
+
+	-- Split the words in the line
+	local words = string_split(line)
+
+	-- The first word is the key word
+	local command = words[1]
+
+	-- For lines where there are two words, the first being the key and the second being a string that is the value
+	if command == "save_name" or command == "data_name" or command == "test_name" then
+
+		config_table[command] = words[2]
+
+	end
+
+end
+
+--print("Configuration")
+--print(config_table)
+
+-- The name to save this model as
+--save_name = 'fcn_32_easy'
+save_name = config_table["save_name"]
+
+-- Where to load data from
+--data_name = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_threshold.hdf5"
+data_name = config_table["data_name"]
+
+-- Test data
+--test_name = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5"
+test_name = config_table["test_name"]
 
 -- Network size configurations
 -- TODO: make these automatic
@@ -99,10 +161,14 @@ function train(checkpoint)
 		-- At checkpoints, do a temp save and test the model
 		if checkpoint > 0 and i % checkpoint == 0 then
 
-			test(3)
-			model:training()
+			if output_level >= 2 then
 
-			# Save the model on the cpu, to prevent issues when loading
+				test(3)
+				model:training()
+
+			end
+
+			-- Save the model on the cpu, to prevent issues when loading
 			model:float()
 			torch.save(save_name .. '_temp.dat', model)
 			model:cuda()
@@ -245,18 +311,11 @@ function save_image_examples(ex_stop, ex_start)
 
 end
 
--- Where to load data from
---load_set = "/media/ebcf6e76-2430-41c9-917a-d331f6258c57/occulsion_data/Easy_set_01.hdf5"
---load_set = "/home/master/will-it-blend/generated_data/vect_test.hdf5"
---load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/Easy_set_01_no_vect_test.hdf5"
-
-load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_threshold.hdf5"
-
 print("Loading data from:")
-print(load_set)
+print(data_name)
 
 -- Get the handle for the whole data set
-whole_set = hdf5.open(load_set, 'r')
+whole_set = hdf5.open(data_name, 'r')
 
 -- Get the handles for the data and label sets
 data_set = whole_set:read('data')
@@ -267,9 +326,6 @@ print(data_set:dataspaceSize())
 
 print("Label shape:")
 print(label_set:dataspaceSize())
-
--- Test data
-test_name = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5"
 
 print("Loading test set from:")
 print(test_name)

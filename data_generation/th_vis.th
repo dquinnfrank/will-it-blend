@@ -1,0 +1,129 @@
+require 'torch'
+--load_set = "/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/occulsion_data/Easy_set_01_no_vect_test.hdf5"
+require 'cutorch'
+require 'cunn'
+require 'optim'
+require 'xlua'
+
+require 'hdf5'
+
+require 'StackShift'
+
+-- Use cuda flag
+use_cuda = False
+
+-- The name of the model to load
+load_name = '/home/master/will-it-blend/prototype_trainers/temp.dat'
+
+-- The name of the test set
+load_set_name = '/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5'
+
+-- Save name to place images
+-- Location must already exist
+save_name = '/home/master/will-it-blend/results/easy_set_vis.hdf5'
+
+-- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
+
+-- Network size configurations
+-- TODO: make these automatic
+-- The number of output classes
+n_classes = 13
+
+-- The size of the images being processed
+height = 480
+width = 640
+
+-- Enumeration of the classes
+classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
+
+-- Set the default tensor type for cpu use
+torch.setdefaulttensortype("torch.FloatTensor")
+
+-- Saves example images from the test set as hdf5 files
+function save_image_examples(ex_stop, ex_start)
+
+	print("")
+	print("Getting test images")
+
+	if not ex_start or ex_start == -1 then
+
+		ex_start = 1
+
+	end
+
+	if not ex_stop or ex_stop == -1 then
+
+		ex_stop = test_set:dataspaceSize()[1]
+
+	end
+
+	-- hdf5 save file
+	local hdf5_file = hdf5.open(save_name, 'w')
+
+	-- Set to evaluate to get production mode
+	model:evaluate()
+
+	-- Make a tensor with the shape (n_images, height, width) for the predictions
+	local ex_images = torch.Tensor(ex_stop - ex_start + 1, height, width)
+
+	-- This tensor will hold the true labelings
+	local ex_true = torch.Tensor(ex_stop - ex_start + 1, height, width)
+
+	-- Go through each image in the test set
+	local count = 1
+	for i = ex_start, ex_stop do
+
+		-- Progress bar
+		--xlua.progress(i, test_im_total)
+		io.write("\rWorking on image " .. i .. " of " .. ex_stop - ex_start + 1)
+		io.flush()
+
+		-- Get an image
+		local data_item = test_set:partial({i,i},{1,height},{1,width})--:cuda()
+
+		-- Load the label
+		local true_label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze()--:cuda()
+		true_label_item = true_label_item:view(true_label_item:nElement()) + 1
+
+		-- Save the true labels
+		ex_true[count] = true_label_item
+
+		-- Get the forward prediction of the log probabilities
+		local prediction_log_probs = model:forward(data_item)
+
+		-- Get the class of each pixel
+		local ignore, predictions = torch.max(prediction_log_probs, 2)
+		predictions = predictions:squeeze():type('torch.FloatTensor')
+		--label_item = label_item:type('torch.FloatTensor')
+
+		-- Set the correct index in the output tensor
+		ex_images[count] = predictions
+
+		count = count + 1
+
+	end
+
+	-- Write the tensor to the file
+	hdf5_file:write('predictions', ex_images)
+	hdf5_file:write('true', ex_true)
+
+	-- Close the file
+	hdf5_file:close()
+
+end
+
+-- Load the model
+model = torch.load(load_name)
+model:float()
+
+-- Open the test set
+whole_test_set = hdf5.open(load_set_name, 'r')
+
+-- Get the handles for the test data and labels
+test_set = whole_test_set:read('data')
+test_label_set = whole_test_set:read('label')
+
+-- Get the visualizations
+save_image_examples(10)
+
+print("")

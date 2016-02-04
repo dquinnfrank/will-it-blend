@@ -10,19 +10,30 @@ import Image
 import post_process as pp; im_p = pp.Image_processing()
 
 # Takes a batch of images and saves them
-def batch_save(image_batch, save_prefix):
+def batch_save(image_batch, save_prefix, torch_correct = True):
 
 	# Go through each image, get the pixel value predictions, save them
 	for index, single_image in enumerate(image_batch):
 
+		print "\rWorking on image " + str(index + 1) + " of " + str(len(image_batch)),
+		sys.stdout.flush()
+
+		# Get the prediction array
+		label_image = np.array(single_image)
+
+		# If this has come from torch, all of the labels will be shifted up by 1
+		if torch_correct:
+
+			label_image -= 1
+
 		# Get pixels
-		pixel_image = im_p.get_pix_vals(np.array(single_image))
+		pixel_image = im_p.get_pix_vals(label_image)
 
 		# Shift the dims to channels, width, height
-		pixel_image = np.transpose(2, 1, 0)
+		pixel_image = np.transpose(pixel_image, (2, 0, 1))
 
 		# Save the image
-		ip_p.save_image(pixel_image, save_prefix + "_" + str(index) + ".jpg")
+		im_p.save_image(pixel_image, save_prefix + "_" + str(index) + ".jpg")
 
 # Takes an hdf5 file of predictions and creates visualization images
 def make_ex_images(visualize_set, save_path):
@@ -39,7 +50,9 @@ def make_ex_images(visualize_set, save_path):
 	true_batch = predictions["true"]
 
 	# Save them
+	print "Saving prediction images\n"
 	batch_save(prediction_batch, os.path.join(save_path, "prediction"))
+	print "Saving true images\n"
 	batch_save(true_batch, os.path.join(save_path, "true"))
 
 # If this is being run from the commandline, take a source and a destination and visualize the images
