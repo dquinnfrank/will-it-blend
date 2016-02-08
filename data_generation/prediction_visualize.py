@@ -45,15 +45,28 @@ def make_ex_images(visualize_set, save_path):
 
 		predictions = h5py.File(visualize_set, 'r')
 
-	# Get the batch of images and the true labels
+	# Get the batch of images and the true labels, if possible
 	prediction_batch = predictions["predictions"]
-	true_batch = predictions["true"]
 
 	# Save them
 	print "Saving prediction images\n"
 	batch_save(prediction_batch, os.path.join(save_path, "prediction"))
-	print "Saving true images\n"
-	batch_save(true_batch, os.path.join(save_path, "true"))
+
+	# Image may not have ground truth
+	try:
+
+		true_batch = predictions["true"]
+
+	# Do nothing if there is no true
+	except KeyError:
+
+		pass
+
+	# Save true if present
+	else:
+
+		print "Saving true images\n"
+		batch_save(true_batch, os.path.join(save_path, "true"))
 
 # If this is being run from the commandline, take a source and a destination and visualize the images
 if __name__ == "__main__":

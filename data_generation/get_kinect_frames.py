@@ -5,6 +5,10 @@ import h5py
 import time
 import sys
 
+# Keeps track of the current total number of taken images
+# TODO: make this not a global variable hack
+running_total = 0
+
 # Take kinect depth data and make it suitable for use in the network
 # Converts from uint16 in millimeters to float32 in meters
 def convert_to_base(image, threshold = 10):
@@ -12,9 +16,6 @@ def convert_to_base(image, threshold = 10):
 	image = image.astype(np.float32) * .001
 
 	image[image > threshold] = threshold
-
-	print(np.max(image))
-	print(np.min(image))
 
 	return image
 
@@ -107,6 +108,8 @@ def get_frame():
 # Seconds to between taking images
 def run(save_handle, delay = 0, number_to_take = 1, interval = 1):
 
+	global running_total
+
 	print "Delay:    " + str(delay)
 	print "Number:   " + str(number_to_take)
 	print "Interval: " + str(interval)
@@ -117,13 +120,16 @@ def run(save_handle, delay = 0, number_to_take = 1, interval = 1):
 	# Take the specified number of images
 	for index_to_take in range(number_to_take):
 
-		print "Taking image number: " + str(index_to_take)
+		# Increment the total number of images taken
+		running_total += 1
+
+		print "Taking image number: " + str(running_total)
 
 		# Take the depth and the rgb
 		depth_image, rgb_image, timestamp = get_frame()
 
 		# Save both
-		save_frame(depth_image, rgb_image, timestamp, save_handle + "_" + str(index_to_take).zfill(3))
+		save_frame(depth_image, rgb_image, timestamp, save_handle + "_" + str(running_total).zfill(3))
 
 		# Between images, wait for the specified interval, not needed on last image
 		if index_to_take < number_to_take - 1:
@@ -139,9 +145,12 @@ if __name__ == "__main__":
 	save_base = sys.argv[1]
 
 	# Default parameters
-	delay = 2
+	delay = 5
 	number_to_take = 3
-	interval = .5
+	interval = 1
+
+	# Run a capture to get rid of the first capture error messages
+	get_frame()
 
 	print "Default configuration"
 	print "Save base: " + save_base

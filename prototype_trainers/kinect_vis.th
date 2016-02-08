@@ -8,18 +8,22 @@ require 'hdf5'
 
 require 'StackShift'
 
+-- The name of the image to be loaded
+load_item_name = arg[1]
+
 -- Use cuda flag
-use_cuda = False
+use_cuda = false
 
 -- The name of the model to load
-load_name = '/home/master/will-it-blend/prototype_trainers/temp.dat'
+load_name = '/home/master/safe/test_model.dat'
 
--- The name of the test set
-load_set_name = '/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5'
+-- The name of the folder to load images from
+-- TODO: use this to automatically grab images
+load_set_name = '/media/master/will-it-blend/generated_data/kinect_test_data/'
 
 -- Save name to place images
 -- Location must already exist
-save_name = '/home/master/will-it-blend/results/easy_set_vis.hdf5'
+save_name = '/home/master/will-it-blend/results/real_images.hdf5'
 
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
@@ -32,29 +36,14 @@ n_classes = 13
 height = 480
 width = 640
 
--- Enumeration of the classes
-classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
-
 -- Set the default tensor type for cpu use
 torch.setdefaulttensortype("torch.FloatTensor")
 
 -- Saves example images from the test set as hdf5 files
-function save_image_examples(ex_stop, ex_start)
+function save_image_examples()
 
 	print("")
-	print("Getting test images")
-
-	if not ex_start or ex_start == -1 then
-
-		ex_start = 1
-
-	end
-
-	if not ex_stop or ex_stop == -1 then
-
-		ex_stop = test_set:dataspaceSize()[1]
-
-	end
+	print("Getting test image")
 
 	-- hdf5 save file
 	local hdf5_file = hdf5.open(save_name, 'w')
@@ -63,29 +52,24 @@ function save_image_examples(ex_stop, ex_start)
 	model:evaluate()
 
 	-- Make a tensor with the shape (n_images, height, width) for the predictions
-	local ex_images = torch.Tensor(ex_stop - ex_start + 1, height, width)
-
-	-- This tensor will hold the true labelings
-	local ex_true = torch.Tensor(ex_stop - ex_start + 1, height, width)
+	--local ex_images = torch.Tensor(ex_stop - ex_start + 1, height, width)
+	local ex_images = torch.Tensor(1,height,width)
 
 	-- Go through each image in the test set
-	local count = 1
-	for i = ex_start, ex_stop do
+	--local count = 1
+	--for i = ex_start, ex_stop do
 
 		-- Progress bar
 		--xlua.progress(i, test_im_total)
-		io.write("\rWorking on image " .. i .. " of " .. ex_stop - ex_start + 1)
-		io.flush()
+		--io.write("\rWorking on image " .. i .. " of " .. ex_stop - ex_start + 1)
+		--io.flush()
 
 		-- Get an image
-		local data_item = test_set:partial({i,i},{1,height},{1,width})--:cuda()
+		--local data_item = test_set:partial({i,i},{1,height},{1,width})--:cuda()
+		local data_item = test_set:partial({1,height},{1,width})
 
-		-- Load the label
-		local true_label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze()--:cuda()
-		true_label_item = true_label_item:view(true_label_item:nElement()) + 1
-
-		-- Save the true labels
-		ex_true[count] = true_label_item
+		-- Add a channel dim
+		data_item = data_item:reshape(1,height,width)
 
 		-- Get the forward prediction of the log probabilities
 		local prediction_log_probs = model:forward(data_item)
@@ -96,15 +80,14 @@ function save_image_examples(ex_stop, ex_start)
 		--label_item = label_item:type('torch.FloatTensor')
 
 		-- Set the correct index in the output tensor
-		ex_images[count] = predictions
+		ex_images[1] = predictions
 
-		count = count + 1
+		--count = count + 1
 
-	end
+	--end
 
 	-- Write the tensor to the file
 	hdf5_file:write('predictions', ex_images)
-	hdf5_file:write('true', ex_true)
 
 	-- Close the file
 	hdf5_file:close()
@@ -115,14 +98,13 @@ end
 model = torch.load(load_name)
 model:float()
 
--- Open the test set
-whole_test_set = hdf5.open(load_set_name, 'r')
+-- Open the image
+whole_test_set = hdf5.open(load_item_name, 'r')
 
 -- Get the handles for the test data and labels
-test_set = whole_test_set:read('data')
-test_label_set = whole_test_set:read('label')
+test_set = whole_test_set:read('depth')
 
 -- Get the visualizations
-save_image_examples(10)
+save_image_examples()
 
 print("")

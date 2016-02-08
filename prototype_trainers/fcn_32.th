@@ -88,9 +88,9 @@ gpu_id = config_table["gpu_id"] or 1
 -- Level of output
 output_level = config_table["output_level"] or 2
 
--- Level of output
--- TODO: make this part of the config file
-output_level = 2
+-- Sets if images will be noised for training
+use_noise = true
+sigma = 
 
 -- Network size configurations
 -- TODO: make these automatic
