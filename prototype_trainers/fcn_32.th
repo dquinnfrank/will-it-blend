@@ -141,7 +141,7 @@ function train(checkpoint)
 	for i = 1, n_images - 1 do
 
 		io.write("\rWorking on image " .. i)
-		io.flush()
+		--io.flush()
 
 		collectgarbage()
 
@@ -179,7 +179,7 @@ function train(checkpoint)
 
 		_, fs = optim.sgd(feval, x, sgd_params)
 
-		io.write(" loss " .. fs[1])
+		io.write(" loss " .. fs[1] .. "                ")
 		io.flush()
 
 		count = count + 1
