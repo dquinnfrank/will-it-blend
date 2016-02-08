@@ -23,10 +23,6 @@ function string_split(inputstr, sep)
         return t
 end
 
--- Level of output
--- TODO: make this part of the config file
-output_level = 2
-
 -- Get the file to use, if there is none use a default
 file_name = arg[1] or "default.txt"
 print("Using configuration from file: " .. file_name)
@@ -41,7 +37,10 @@ config_table = {}
 -- save_name
 -- data_name
 -- test_name
+--
+-- Optional
 -- gpu_id
+-- output_level
 
 -- Go through each line in the file
 for line in config_file:lines() do
@@ -60,7 +59,7 @@ for line in config_file:lines() do
 	end
 
 	-- For single value that is a number
-	if command == "gpu_id" then
+	if command == "gpu_id" or command == "output_level" then
 
 		config_table[command] = tonumber(words[2])
 
@@ -84,7 +83,14 @@ data_name = config_table["data_name"]
 test_name = config_table["test_name"]
 
 -- GPU device number to use
-gpu_id = config_table["gpu_id"]
+gpu_id = config_table["gpu_id"] or 1
+
+-- Level of output
+output_level = config_table["output_level"] or 2
+
+-- Level of output
+-- TODO: make this part of the config file
+output_level = 2
 
 -- Network size configurations
 -- TODO: make these automatic
@@ -113,9 +119,9 @@ function train(checkpoint)
 
 	-- How often the network will stop for testing and saving
 	-- Set to negative for no checkpoints
-	checkpoint = checkpoint or 5000
+	local checkpoint = checkpoint or 5000
 
-	save_name = save_name or 'fcn_32'
+	local save_name = save_name or 'fcn_32'
 
 	-- The amount of images to check at each checkpoint
 
@@ -123,18 +129,19 @@ function train(checkpoint)
 	local count = 0
 
 	-- For tracking the loss of the network
-	current_loss = 0
+	local current_loss = 0
 
 	-- Get the shape of the data set
-	data_shape = data_set:dataspaceSize()
-	n_images = data_shape[1]
-	height = data_shape[2]
-	width = data_shape[3]
+	local data_shape = data_set:dataspaceSize()
+	local n_images = data_shape[1]
+	local height = data_shape[2]
+	local width = data_shape[3]
 
 	-- Go through each image one at a time
 	for i = 1, n_images - 1 do
 
 		io.write("\rWorking on image " .. i)
+		io.flush()
 
 		collectgarbage()
 
@@ -150,12 +157,18 @@ function train(checkpoint)
 		-- Closure for feval to get gradients
 		local feval = function(x_new)
 
+			-- Set the bias of the upscale layer to zero
+			-- Assuming that model is on GPU
+			-- TODO make a layer that has no bias
+			model:get(upscale_layer_index).bias = torch.CudaTensor(n_classes):fill(0)
+			model:get(upscale_layer_index - 1).bias = torch.CudaTensor(n_classes):fill(0)
+
 			-- Reset the data
 			if x~= x_new then x:copy(x_new) end
 			dl_dx:zero()
 
 			-- Run the forward input
-			output = model:forward(data_item)
+			local output = model:forward(data_item)
 
 			-- Gradient descent for the image
 			local loss = criterion:forward(model.output, label_item)
@@ -232,6 +245,7 @@ function test(stop, start)
 		-- Progress bar
 		--xlua.progress(i, test_im_total)
 		io.write("\rWorking on image " .. i .. " of " .. stop - start + 1)
+		io.flush()
 
 		-- Get an image
 		local data_item = test_set:partial({i,i},{1,height},{1,width}):cuda()
@@ -352,9 +366,6 @@ whole_test_set = hdf5.open(test_name, 'r')
 test_set = whole_test_set:read('data')
 test_label_set = whole_test_set:read('label')
 
--- Set the GPU to use
-cutorch.setDevice(1)
-
 print("Creating the model")
 -- The last main line convolution and pooling
 -- Starts from pool4
@@ -459,6 +470,9 @@ final_main:add(nn.SpatialConvolution(fc6_7_planes, n_classes, 1, 1))
 -- Upscale all of the previous downsamplings
 final_main:add(nn.SpatialFullConvolution(n_classes, n_classes, 2*sampling, 2*sampling, sampling, sampling, sampling/2, sampling/2))
 
+-- Set the layer where the upscaling occurs, so that the bias can be removed
+upscale_layer_index = 38
+
 -- Reorder and reshape from (n_classes, height, width) to (height * width, n_classes)
 final_main:add(nn.StackShift())
 
@@ -509,6 +523,9 @@ sgd_params = {
 	weightDecay = .0001,
 	momentum = .5
 }
+
+print("Using SGD parameters:")
+print(sgd_params)
 
 -- TODO what is this exactly
 x, dl_dx = model:getParameters()

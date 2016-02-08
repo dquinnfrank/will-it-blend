@@ -1,4 +1,5 @@
-save_name fcn_32
+save_name ../trained_models/fcn_32_default
 data_name /media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_threshold.hdf5
 test_name /media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5
 gpu_id 1
+output_level 2

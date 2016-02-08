@@ -7,9 +7,14 @@ import sys
 
 # Take kinect depth data and make it suitable for use in the network
 # Converts from uint16 in millimeters to float32 in meters
-def convert_to_base(image):
+def convert_to_base(image, threshold = 10):
 
 	image = image.astype(np.float32) * .001
+
+	image[image > threshold] = threshold
+
+	print(np.max(image))
+	print(np.min(image))
 
 	return image
 
@@ -20,13 +25,16 @@ def convert_to_base(image):
 #
 # save_name : string
 # Include path and extension
-def save_image_viewable(image, save_name):
+def save_image_viewable(image, save_name, threshold=10):
 
 	# Copy the image to avoid changing underlying data
 	image = np.copy(image)
 
 	# If this is a single channel image, normalize it
 	if len(image.shape) == 2:
+
+		# Threshold the image first, threshold is given in meters
+		image[image > threshold * 1000] = threshold * 1000
 
 		image = (image - np.min(image))*(255.0/np.max(image))
 
