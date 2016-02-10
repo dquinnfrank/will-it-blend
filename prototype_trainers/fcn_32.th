@@ -90,7 +90,7 @@ output_level = config_table["output_level"] or 2
 
 -- Sets if images will be noised for training
 use_noise = true
-sigma = 
+sigma = .1
 
 -- Network size configurations
 -- TODO: make these automatic
@@ -197,9 +197,9 @@ function train(checkpoint)
 			end
 
 			-- Save the model on the cpu, to prevent issues when loading
-			model:float()
+			--model:float()
 			torch.save(save_name .. '_temp.dat', model)
-			model:cuda()
+			--model:cuda()
 
 		end
 
