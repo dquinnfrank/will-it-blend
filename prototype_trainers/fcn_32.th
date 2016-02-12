@@ -41,6 +41,12 @@ config_table = {}
 -- Optional
 -- gpu_id
 -- output_level
+-- load_name
+-- learningRate
+-- learningRateDecay
+-- weightDecay
+-- momentum
+-- noise_sigma
 
 -- Go through each line in the file
 for line in config_file:lines() do
@@ -52,7 +58,7 @@ for line in config_file:lines() do
 	local command = words[1]
 
 	-- For lines where there are two words, the first being the key and the second being a string that is the value
-	if command == "save_name" or command == "data_name" or command == "test_name" then
+	if command == "save_name" or command == "data_name" or command == "test_name"  or command == "load_name" then
 
 		config_table[command] = words[2]
 
@@ -88,9 +94,20 @@ gpu_id = config_table["gpu_id"] or 1
 -- Level of output
 output_level = config_table["output_level"] or 2
 
+-- The name of an existing model to load, for continuing training
+load_name = config_table["load_name"] or nil
+
+-- SGD parameters
+learning_rate = config_table["learning_rate"] or .1
+learning_rate_decay = config_table["learning_rate_decay"] or .001
+weight_decay = config_table["weight_decay"] or .0001
+momentum = config_table["momentum"] or .5
+
 -- Sets if images will be noised for training
-use_noise = true
-sigma = .1
+noise_sigma = config_table["noise_sigma"] or 0
+if noise_sigma > 0 then
+	use_noise = true
+end
 
 -- Network size configurations
 -- TODO: make these automatic
@@ -102,7 +119,24 @@ height = 480
 width = 640
 
 -- Enumeration of the classes
-classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
+--classes = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12'}
+
+-- The weights to use for the ClassNLLCriterion
+-- Reduce the impact of overwhelming non-person pixels
+class_weights = torch.Tensor(n_classes):fill(1)
+class_weights[1] = .25 --non person
+--class_weights[2] =  
+--class_weights[3] = 
+--class_weights[4] = 
+--class_weights[5] = 
+--class_weights[6] = 
+--class_weights[7] = 
+--class_weights[8] = 
+--class_weights[9] = 
+--class_weights[10] = 
+--class_weights[11] = 
+--class_weights[12] = 
+--class_weights[13] = 
 
 -- Set the default tensor type for cpu use
 torch.setdefaulttensortype("torch.FloatTensor")
@@ -110,6 +144,126 @@ torch.setdefaulttensortype("torch.FloatTensor")
 -- Set the gpu to run the whole system on
 print("Using GPU: " .. gpu_id)
 cutorch.setDevice(gpu_id)
+
+-- This is the end to end network with no skips
+function build_fcn_32()
+
+	-- The basic network with no skips
+	fcn_32 = nn.Sequential()
+
+	-- Tracks the amount of sampling
+	sampling = 1
+
+	-- The kernel size to use for all standard conv layers
+	k_size = 3
+
+	-- The padding needed on standard conv layers to keep shape right
+	pad = torch.floor((k_size - 1)/2)
+
+	-- conv1
+	--conv1_planes = 64
+	conv1_planes = 32
+
+	fcn_32:add(nn.SpatialConvolution(1, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_1
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv1_planes, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_2
+	fcn_32:add(nn.ReLU())
+
+	-- pool1
+	sampling = 2 * sampling
+	fcn_32:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+	-- conv2
+	--conv2_planes = 128
+	conv2_planes = 64
+
+	fcn_32:add(nn.SpatialConvolution(conv1_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_1
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv2_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_2
+	fcn_32:add(nn.ReLU())
+
+	-- pool2
+	sampling = 2 * sampling
+	fcn_32:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+	-- conv3
+	--conv3_planes = 256
+	conv3_planes = 128
+
+	fcn_32:add(nn.SpatialConvolution(conv2_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_1
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_2
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_3
+	fcn_32:add(nn.ReLU())
+
+	-- pool3
+	sampling = 2 * sampling
+	fcn_32:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+	-- conv4
+	--conv4_planes = 512
+	conv4_planes = 256
+
+	fcn_32:add(nn.SpatialConvolution(conv3_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_1
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_2
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_3
+	fcn_32:add(nn.ReLU())
+
+	-- pool4
+	sampling = 2 * sampling
+	fcn_32:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+	-- conv5
+	--conv5_planes = 512
+	conv5_planes = 256
+
+	fcn_32:add(nn.SpatialConvolution(conv4_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_1
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_2
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.SpatialConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_3
+
+	-- pool5
+	sampling = 2 * sampling
+	fcn_32:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+
+	-- conv6-7
+	-- aka fc6-7
+	--fc6_7_planes = 4096 --Amount in paper, but uses too much memory
+	--fc6_7_planes = 3072
+	--fc6_7_planes = 1024 -- Works on GTX 960
+	fc6_7_planes = 1024
+
+	fcn_32:add(nn.SpatialConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.Dropout(.5))
+	fcn_32:add(nn.SpatialConvolution(fc6_7_planes, fc6_7_planes, 1, 1)) -- fc7
+	fcn_32:add(nn.ReLU())
+	fcn_32:add(nn.Dropout(.5))
+
+	-- output layer
+	fcn_32:add(nn.SpatialConvolution(fc6_7_planes, n_classes, 1, 1))
+
+	-- Upscale all of the previous downsamplings
+	fcn_32:add(nn.SpatialFullConvolution(n_classes, n_classes, 2*sampling, 2*sampling, sampling, sampling, sampling/2, sampling/2))
+
+	-- Set the layer where the upscaling occurs, so that the bias can be removed
+	upscale_layer_index = fcn_32:size()
+
+	-- Reorder and reshape from (n_classes, height, width) to (height * width, n_classes)
+	fcn_32:add(nn.StackShift())
+
+	-- For using ClassNLL
+	-- Needs LogSoftMax layer
+	-- Needs to be reshaped to width * height, n_classes
+	fcn_32:add(nn.LogSoftMax())
+
+	return fcn_32
+
+end
 
 -- Training function
 function train(checkpoint)
@@ -197,6 +351,7 @@ function train(checkpoint)
 			end
 
 			-- Save the model on the cpu, to prevent issues when loading
+			-- Actually, don't do that since it ruins training
 			--model:float()
 			torch.save(save_name .. '_temp.dat', model)
 			--model:cuda()
@@ -367,123 +522,10 @@ test_set = whole_test_set:read('data')
 test_label_set = whole_test_set:read('label')
 
 print("Creating the model")
--- The last main line convolution and pooling
--- Starts from pool4
-final_main = nn.Sequential()
-
--- Tracks the amount of sampling
-sampling = 1
-
--- The kernel size to use for all standard conv layers
-k_size = 3
-
--- The padding needed on standard conv layers to keep shape right
-pad = torch.floor((k_size - 1)/2)
-
--- conv1
---conv1_planes = 64
-conv1_planes = 32
-
-final_main:add(nn.SpatialConvolution(1, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_1
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv1_planes, conv1_planes, k_size, k_size, 1, 1, pad, pad)) -- conv1_2
-final_main:add(nn.ReLU())
-
--- pool1
-sampling = 2 * sampling
-final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-
--- conv2
---conv2_planes = 128
-conv2_planes = 64
-
-final_main:add(nn.SpatialConvolution(conv1_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_1
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv2_planes, conv2_planes, k_size, k_size, 1, 1, pad, pad)) -- conv2_2
-final_main:add(nn.ReLU())
-
--- pool2
-sampling = 2 * sampling
-final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-
--- conv3
---conv3_planes = 256
-conv3_planes = 128
-
-final_main:add(nn.SpatialConvolution(conv2_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_1
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_2
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv3_planes, conv3_planes, k_size, k_size, 1, 1, pad, pad)) -- conv3_3
-final_main:add(nn.ReLU())
-
--- pool3
-sampling = 2 * sampling
-final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-
--- conv4
---conv4_planes = 512
-conv4_planes = 256
-
-final_main:add(nn.SpatialConvolution(conv3_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_1
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_2
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv4_planes, conv4_planes, k_size, k_size, 1, 1, pad, pad)) -- conv4_3
-final_main:add(nn.ReLU())
-
--- pool4
-sampling = 2 * sampling
-final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-
--- conv5
---conv5_planes = 512
-conv5_planes = 256
-
-final_main:add(nn.SpatialConvolution(conv4_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_1
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_2
-final_main:add(nn.ReLU())
-final_main:add(nn.SpatialConvolution(conv5_planes, conv5_planes, k_size, k_size, 1, 1, pad, pad)) -- conv5_3
-
--- pool5
-sampling = 2 * sampling
-final_main:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-
--- conv6-7
--- aka fc6-7
---fc6_7_planes = 4096 --Amount in paper, but uses too much memory
---fc6_7_planes = 3072
---fc6_7_planes = 1024 -- Works on GTX 960
-fc6_7_planes = 1024
-
-final_main:add(nn.SpatialConvolution(conv5_planes, fc6_7_planes, 7, 7, 1, 1, 3, 3)) -- fc6
-final_main:add(nn.ReLU())
-final_main:add(nn.Dropout(.5))
-final_main:add(nn.SpatialConvolution(fc6_7_planes, fc6_7_planes, 1, 1)) -- fc7
-final_main:add(nn.ReLU())
-final_main:add(nn.Dropout(.5))
-
--- output layer
-final_main:add(nn.SpatialConvolution(fc6_7_planes, n_classes, 1, 1))
-
--- Upscale all of the previous downsamplings
-final_main:add(nn.SpatialFullConvolution(n_classes, n_classes, 2*sampling, 2*sampling, sampling, sampling, sampling/2, sampling/2))
-
--- Set the layer where the upscaling occurs, so that the bias can be removed
-upscale_layer_index = 38
-
--- Reorder and reshape from (n_classes, height, width) to (height * width, n_classes)
-final_main:add(nn.StackShift())
-
--- For using ClassNLL
--- Needs LogSoftMax layer
--- Needs to be reshaped to width * height, n_classes
-final_main:add(nn.LogSoftMax())
 
 -- Put the model together
 -- Nothing to do for this right now
-model = final_main
+model = build_fcn_32()
 
 -- Move to GPU
 model:cuda()
@@ -492,7 +534,10 @@ print("Constructed model:")
 print(model)
 
 -- Using Negative Log Likelihood
-criterion = nn.ClassNLLCriterion():cuda()
+print("Negative Log Likelihood Criterion class weights:")
+print(class_weights)
+
+criterion = nn.ClassNLLCriterion(class_weights):cuda()
 
 -- Parameters for SGD
 
@@ -517,11 +562,20 @@ sgd_params = {
 --]]
 
 -- Good middle ground, high initial learning rate that decays quickly
+--[[
 sgd_params = {
 	learningRate = .1,
 	learningRateDecay = .001,
 	weightDecay = .0001,
 	momentum = .5
+}
+--]]
+
+sgd_params = {
+	learningRate = learning_rate,
+	learningRateDecay = learning_rate_decay,
+	weightDecay = weight_decay,
+	momentum = momentum
 }
 
 print("Using SGD parameters:")
