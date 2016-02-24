@@ -10,22 +10,22 @@ require 'StackShift'
 
 -- The name of the image to be loaded
 load_item_name = arg[1]
+save_name = arg[2]
 
 -- Use cuda flag
-use_cuda = false
+--use_cuda = false
+use_cuda = true
 
 -- The name of the model to load
 load_name = '/home/master/safe/test_model.dat'
 
 -- The name of the folder to load images from
 -- TODO: use this to automatically grab images
-load_set_name = '/media/master/will-it-blend/generated_data/kinect_test_data/'
+load_set_name = '/media/master/will-it-blend/generated_data/kinect_hallway/'
 
 -- Save name to place images
 -- Location must already exist
-save_name = '/home/master/will-it-blend/results/real_images.hdf5'
-
--- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
+--save_name = '/home/master/will-it-blend/results/hall_real_images.hdf5'
 
 -- Network size configurations
 -- TODO: make these automatic
@@ -55,29 +55,33 @@ function save_image_examples()
 	--local ex_images = torch.Tensor(ex_stop - ex_start + 1, height, width)
 	local ex_images = torch.Tensor(1,height,width)
 
-	-- Go through each image in the test set
-	--local count = 1
-	--for i = ex_start, ex_stop do
+		if use_cuda then
 
-		-- Progress bar
-		--xlua.progress(i, test_im_total)
-		--io.write("\rWorking on image " .. i .. " of " .. ex_stop - ex_start + 1)
-		--io.flush()
+			data_item = test_set:partial({1,height},{1,width}):cuda()
 
-		-- Get an image
-		--local data_item = test_set:partial({i,i},{1,height},{1,width})--:cuda()
-		local data_item = test_set:partial({1,height},{1,width})
+		else
+
+			data_item = test_set:partial({1,height},{1,width})
+
+		end
 
 		-- Add a channel dim
 		data_item = data_item:reshape(1,height,width)
+
+		-- Time the epoch
+		timer = torch.Timer()
 
 		-- Get the forward prediction of the log probabilities
 		local prediction_log_probs = model:forward(data_item)
 
 		-- Get the class of each pixel
 		local ignore, predictions = torch.max(prediction_log_probs, 2)
+
+		-- Get the end time
+		end_time = timer:time().real
+
+		print("Time taken for forward propagation: " .. end_time)
 		predictions = predictions:squeeze():type('torch.FloatTensor')
-		--label_item = label_item:type('torch.FloatTensor')
 
 		-- Set the correct index in the output tensor
 		ex_images[1] = predictions
@@ -96,7 +100,20 @@ end
 
 -- Load the model
 model = torch.load(load_name)
-model:float()
+
+if not use_cuda then
+
+	model:float()
+
+	print("Running on cpu")
+
+else
+
+	model:cuda()
+
+	print("Running on gpu")
+
+end
 
 -- Open the image
 whole_test_set = hdf5.open(load_item_name, 'r')

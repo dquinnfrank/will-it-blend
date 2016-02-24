@@ -65,7 +65,7 @@ def make_ex_images(visualize_set, save_path):
 	# Save true if present
 	else:
 
-		print "Saving true images\n"
+		print "\nSaving true images\n"
 		batch_save(true_batch, os.path.join(save_path, "true"))
 
 # If this is being run from the commandline, take a source and a destination and visualize the images

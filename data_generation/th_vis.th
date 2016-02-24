@@ -68,6 +68,9 @@ function save_image_examples(ex_stop, ex_start)
 	-- This tensor will hold the true labelings
 	local ex_true = torch.Tensor(ex_stop - ex_start + 1, height, width)
 
+	-- Depth data, for visualization purposes
+	local ex_depth = torch.Tensor(ex_stop - ex_start + 1, height, width)
+
 	-- Go through each image in the test set
 	local count = 1
 	for i = ex_start, ex_stop do
@@ -78,14 +81,17 @@ function save_image_examples(ex_stop, ex_start)
 		io.flush()
 
 		-- Get an image
-		local data_item = test_set:partial({i,i},{1,height},{1,width})--:cuda()
+		local data_item = test_set:partial({i,i},{1,height},{1,width}):cuda()
+
+		-- Save the depth
+		ex_depth[count] = data_item:type('torch.FloatTensor')
 
 		-- Load the label
-		local true_label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze()--:cuda()
+		local true_label_item = test_label_set:partial({i,i}, {1,height}, {1,width}):squeeze():cuda()
 		true_label_item = true_label_item:view(true_label_item:nElement()) + 1
 
 		-- Save the true labels
-		ex_true[count] = true_label_item
+		ex_true[count] = true_label_item:type('torch.FloatTensor')
 
 		-- Get the forward prediction of the log probabilities
 		local prediction_log_probs = model:forward(data_item)
@@ -105,6 +111,7 @@ function save_image_examples(ex_stop, ex_start)
 	-- Write the tensor to the file
 	hdf5_file:write('predictions', ex_images)
 	hdf5_file:write('true', ex_true)
+	hdf5_file:write('data', ex_depth)
 
 	-- Close the file
 	hdf5_file:close()
@@ -113,7 +120,8 @@ end
 
 -- Load the model
 model = torch.load(load_name)
-model:float()
+--model:float()
+model:cuda()
 
 -- Open the test set
 whole_test_set = hdf5.open(load_set_name, 'r')
