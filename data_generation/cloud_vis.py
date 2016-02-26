@@ -1,5 +1,6 @@
 # Shows the person as a point cloud
 # http://stackoverflow.com/questions/7591204/how-to-display-point-cloud-in-vtk-in-different-colors
+# http://www.vtk.org/pipermail/vtkusers/2011-February/065697.html
 
 import sys
 
@@ -31,6 +32,14 @@ class Cloud_vis:
 		# To render
 		self.vtkActor = vtk.vtkActor()
 		#self.vtkActor.SetMapper(mapper)
+
+		# The intrinsics of the camera
+		# http://cs.gmu.edu/~xzhou10/doc/kinect-study.pdf
+		# http://stackoverflow.com/questions/31265245/extracting-3d-coordinates-given-2d-image-points-depth-map-and-camera-calibratio
+		self.focal_x = 580.0
+		self.focal_y = 580.0
+		self.center_x = 314.0
+		self.center_y = 252.0
 
 	def create_cloud(self, image_index = 0):
 
