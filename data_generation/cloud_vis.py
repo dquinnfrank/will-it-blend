@@ -8,14 +8,16 @@ import numpy
 import vkt
 import hdf5
 
+import post_process as pp; im_p = pp.Image_processing()
+
 class Cloud_vis:
 
 	def __init__(self, vis_file_name):
 
 		# Get the data and image predictions
-		depth = h5py.File(vis_file_name, 'r')["data"]
-		truth = h5py.File(vis_file_name, 'r')["true"]
-		predictions = h5py.File(vis_file_name, 'r')["predictions"]
+		self.depth = h5py.File(vis_file_name, 'r')["data"]
+		self.truth = h5py.File(vis_file_name, 'r')["true"]
+		self.predictions = h5py.File(vis_file_name, 'r')["predictions"]
 
 		# Create the cloud
 		self.vtkPolyData = vtk.vtkPolyData()
@@ -44,16 +46,37 @@ class Cloud_vis:
 	def create_cloud(self, image_index = 0):
 
 		# Go through each pixel in the image at the image index
-		for h_index in range(depth.shape[1]):
-			for w_index in range(depth.shape[2]):
+		for h_index in range(self.depth.shape[1]):
+			for w_index in range(self.depth.shape[2]):
 
 				# Get the label at this location and correct for Lua bad indexing
-				this_label = predictions[image_index][h_index][w_index] - 1
+				this_label = self.predictions[image_index][h_index][w_index] - 1
 
 				# Ignore non person pixels
 				if(this_label != 0):
 
+					# Get the depth at this point
+					this_depth = self.depth[image_index][h_index][w_index]
+
+					coordinates = [0,0,0]
+
+					# Get the x, y coordinates of this point
+					coordinates[0] = ((h_index - self.center_y) * this_depth) / self.focal_y
+					coordinates[1] = ((w_index - self.center_x) * this_depth) / self.focal_x
+					coordinates[2] = this_depth
+
+					# Set the location of this point
+					self.
+
 					# Get the RGB values for this point
+					rgb = im_p.label_to_pix[this_label].split()
+					rgb = [int(i) for i in rgb]
+
+					# Add the point
+					self.add_point(coordinates, rgb)
+
+					# Set the colors for the point
+					#self.Colors.InsertNextTuple3(int(rgb[0]),int(rgb[1]),int(rgb[2]))
 
 	# Adds a single point to the cloud that will have the given color
 	def add_point(self, point_location, point_color):
