@@ -9,6 +9,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/visualization/cloud_viewer.h>
 
 #include "H5Cpp.h"
 
@@ -21,10 +22,15 @@ class person_cloud
 
 	public:
 
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+
 	// Constructor
 	// Needs a file to load the data from
 	person_cloud(string file_name)
 	{
+
+		// Initialize the cloud
+		cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
 
 	}
 
@@ -33,12 +39,33 @@ class person_cloud
 	void make_cloud()
 	{
 
+		// Temporary point to hold values
+		pcl::PointXYZRGB temp;
+
+	}
+
+	// Removes bad points from the cloud that are considered wrong
+	// Pixels at the threshold, outliers
+	void trim_cloud(double threshold=10.0)
+	{
+
+		// Go through each point and remove threshold points
+		
+		
 	}
 
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
+		pcl::visualization::CloudViewer viewer("Cloud View");
 
+		viewer.showCloud(cloud);
+
+		// Spin lock until window exit
+		while (!viewer.wasStopped())
+		{
+
+		}
 	}
 
 }
