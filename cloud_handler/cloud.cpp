@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <map>
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -16,22 +17,172 @@
 using namespace std;
 using namespace H5;
 
+// Gives the RGB for the given label
+void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
+{
+	// LUA indexes from 1, fix by subtracting 1
+	if (fix_lua)
+	{
+		label--;
+	}
+
+	// Non person
+	if (label == 0)
+	{
+		r = 0;
+		g = 0;
+		b = 0;
+	}
+
+	// Head L
+	else if (label == 1)
+	{
+		r = 255;
+		g = 0;
+		b = 0;
+	}
+
+	// Head R
+	else if (label == 2)
+	{
+		r = 50;
+		g = 0;
+		b = 0;
+	}
+
+	// Torso L
+	else if (label == 3)
+	{
+		r = 0;
+		g = 0;
+		b = 255;
+	}
+
+	// Torso R
+	else if (label == 4)
+	{
+		r = 0;
+		g = 0;
+		b = 50;
+	}
+
+	// Upper Arm L
+	else if (label == 5)
+	{
+		r = 255;
+		g = 255;
+		b = 0;
+	}
+
+	// Upper Arm R
+	else if (label == 6)
+	{
+		r = 50;
+		g = 50;
+		b = 0;
+	}
+
+	// Lower Arm L
+	else if (label == 7)
+	{
+		r = 0;
+		g = 255;
+		b = 255;
+	}
+
+	// Lower Arm R
+	else if (label == 8)
+	{
+		r = 0;
+		g = 50;
+		b = 50;
+	}
+
+	// Upper Leg L
+	else if (label == 9)
+	{
+		r = 0;
+		g = 255;
+		b = 0;
+	}
+
+	// Upper Leg R
+	else if (label == 10)
+	{
+		r = 0;
+		g = 50;
+		b = 0;
+	}
+
+	// Lower Leg L
+	else if (label == 11)
+	{
+		r = 255;
+		g = 0;
+		b = 255;
+	}
+
+	// Lower Leg R
+	else if (label == 12)
+	{
+		r = 50;
+		g = 0;
+		b = 50;
+	}
+}
+
+// Gives the label given the pix
+void pix_to_label(int r, int g, int b, int& label, bool break_for_lua = false)
+{
+
+}
+
 // Handles point clouds
 class person_cloud
 {
+	private:
+
+	// The max number of classes
+	// TODO: make this automatic / configurable
+	int num_classes;
 
 	public:
 
-	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+	//pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud;
+
+	// Holds point clouds for every separate body part
+	// Keys are the labels
+	map<int, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> part_clouds;
 
 	// Constructor
 	// Needs a file to load the data from
 	person_cloud(string file_name)
 	{
 
-		// Initialize the cloud
-		cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
+		// Set the max number of classes
+		num_classes = 13;
 
+		// Initialize the clouds
+		for (int i = 0; i < num_classes; i++)
+		{
+			// Blank point cloud
+			pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+			// Add to map
+			part_clouds[i] = temp;
+		}
+
+	}
+
+	// Destructor
+	~person_cloud()
+	{
+		// Delete all of the clouds
+		//for (int i = 0; i < num_classes; i++)
+		//{
+		//	delete part_clouds[i];
+		//	part_clouds[i] = NULL;
+		//}
 	}
 
 	// Makes a cloud out of the given info
@@ -53,13 +204,21 @@ class person_cloud
 		
 		
 	}
-
+/*
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
+		// Construct a combined cloud from all of the parts
+		pcl::PointCloud<pcl::PointXYZRGB> cloud;
+		cloud = *part_clouds[0];
+		for (int i = 1; i < num_classes; i++)
+		{
+			cloud += *part_clouds[i];
+		}
+
 		pcl::visualization::CloudViewer viewer("Cloud View");
 
-		viewer.showCloud(cloud);
+		viewer.showCloud(&cloud);
 
 		// Spin lock until window exit
 		while (!viewer.wasStopped())
@@ -67,8 +226,8 @@ class person_cloud
 
 		}
 	}
-
-}
+*/
+};
 
 int main(int argc, char** argv)
 {
