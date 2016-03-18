@@ -154,6 +154,9 @@ class person_cloud
 	// Keys are the labels
 	map<int, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> part_clouds;
 
+	// The name of the file to load from
+	string set_file_name;
+
 	// Constructor
 	// Needs a file to load the data from
 	person_cloud(string file_name)
@@ -161,6 +164,9 @@ class person_cloud
 
 		// Set the max number of classes
 		num_classes = 13;
+
+		// H5 file name
+		set_file_name = file_name;
 
 		// Initialize the clouds
 		for (int i = 0; i < num_classes; i++)
@@ -177,6 +183,7 @@ class person_cloud
 	// Destructor
 	~person_cloud()
 	{
+		// Not needed?
 		// Delete all of the clouds
 		//for (int i = 0; i < num_classes; i++)
 		//{
@@ -190,8 +197,23 @@ class person_cloud
 	void make_cloud()
 	{
 
+		// Open the H5 file
+		H5File file(set_file_name, H5F_ACC_RDONLY);
+
+		// Name of the sub fields in the hdf5 file
+		string data_name = "data";
+		string true_name = "true";
+		string pred_name = "predictions";
+
+		// Open the data sets
+		DataSet depth = file.openDataSet(data_name);
+		DataSet truth = file.openDataSet(true_name);
+		DataSet preds = file.openDataSet(pred_name);
+
 		// Temporary point to hold values
 		pcl::PointXYZRGB temp;
+
+		// Go through each point in the file
 
 	}
 
@@ -239,11 +261,6 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	// Name of the sub fields in the hdf5 file
-	string data_name = "data";
-	string true_name = "true";
-	string pred_name = "predictions";
-
 	// Name of the visualization file
 	string set_file_name = argv[1];
 
@@ -252,16 +269,6 @@ int main(int argc, char** argv)
 
 	cout << "Using file: " << set_file_name << endl;
 	cout << "At index: " << to_visualize_index << endl;
-
-	// Open the file
-	H5File file(set_file_name, H5F_ACC_RDONLY);
-
-	cout << "File opened" << endl;
-
-	// Open the data sets
-	DataSet depth = file.openDataSet(data_name);
-	DataSet truth = file.openDataSet(true_name);
-	DataSet preds = file.openDataSet(pred_name);
 
 	return 0;
 }
