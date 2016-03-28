@@ -49,7 +49,7 @@ class Cloud_vis:
 
 	def create_cloud(self, image_index = 0):
 
-		first_flag = True
+		#first_flag = True
 
 		# Go through each pixel in the image at the image index
 		for h_index in range(self.depth.shape[1]):
@@ -71,11 +71,11 @@ class Cloud_vis:
 					coordinates[1] = ((w_index - self.center_x) * this_depth) / self.focal_x
 					coordinates[2] = this_depth
 
-					if first_flag:
+					#if first_flag:
 
-						print coordinates
+						#print coordinates
 
-						first_flag = False
+						#first_flag = False
 
 					# Get the RGB values for this point
 					rgb = im_p.label_to_pix[this_label].split()

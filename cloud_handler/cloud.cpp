@@ -17,6 +17,18 @@
 using namespace std;
 using namespace H5;
 
+// For getting floats
+struct pyf
+{
+	float val;
+};
+
+// For getting ints
+struct pyi
+{
+	int val;
+};
+
 // Gives the RGB for the given label
 void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
 {
@@ -134,7 +146,108 @@ void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
 // Gives the label given the pix
 void pix_to_label(int r, int g, int b, int& label, bool break_for_lua = false)
 {
+	// non person
+	if (r == 0 && g == 0 && b == 0)
+	{
+		label = 0;
+	}
 
+	// Head L
+	else if (r == 255 && g == 0 && b == 0)
+	{
+		label = 1;
+	}
+
+	// Head R
+	else if (r == 50 && g == 0 && b == 0)
+	{
+		label = 2;
+	}
+
+	// Torso L
+	else if (r == 0 && g == 0 && b == 255)
+	{
+		label = 3;
+	}
+
+	// Torso R
+	else if (r == 0 && g == 0 && b == 50)
+	{
+		label = 4;
+	}
+
+	// Upper arm L
+	else if (r == 255 && g == 255 && b == 0)
+	{
+		label = 5;
+	}
+
+	// Upper arm R
+	else if (r == 50 && g == 50 && b == 0)
+	{
+		label = 6;
+	}
+
+	// Lower arm L
+	else if (r == 0 && g == 255 && b == 255)
+	{
+		label = 7;
+	}
+
+	// Lower arm R
+	else if (r == 0 && g == 50 && b == 50)
+	{
+		label = 8;
+	}
+
+	// Upper leg L
+	else if (r == 0 && g == 255 && b == 0)
+	{
+		label = 9;
+	}
+
+	// Upper leg R
+	else if (r == 0 && g == 50 && b == 0)
+	{
+		label = 10;
+	}
+
+	// Lower leg L
+	else if (r == 255 && g == 0 && b == 255)
+	{
+		label = 11;
+	}
+
+	// Lower leg R
+	else if (r == 50 && g == 0 && b == 50)
+	{
+		label = 12;
+	}
+
+	// Finally, add 1 for lua sake
+	if (break_for_lua)
+	{
+		label++;
+	}
+}
+
+// Gives the XYZ position in world of the point using assumed intrinsics
+void get_world_XYZ(double depth, int h_index, int w_index, double& X, double& Y)
+{
+	// These are the intrinsics
+	// TODO: make these configurable
+	double focal_x = 580;
+	double focal_y = 580;
+	double center_x = 314;
+	double center_y = 252;
+
+	// X position
+	X = ((h_index - center_y) * depth) / focal_y;
+
+	// Y position
+	Y = ((w_index - center_x) * depth) / focal_x;
+
+	// Depth does not change
 }
 
 // Handles point clouds
@@ -194,8 +307,10 @@ class person_cloud
 
 	// Makes a cloud out of the given info
 	// Need to call after running the creating the class
-	void make_cloud()
+	void make_cloud(int image_index = 0)
 	{
+		// Loading python hdf5 files into c++
+		// http://stackoverflow.com/questions/25568446/loading-data-from-hdf5-to-vector-in-c
 
 		// Open the H5 file
 		H5File file(set_file_name, H5F_ACC_RDONLY);
@@ -210,11 +325,86 @@ class person_cloud
 		DataSet truth = file.openDataSet(true_name);
 		DataSet preds = file.openDataSet(pred_name);
 
+		// Get the shape of the data sets (all have the same shape)
+		hid_t dspace = H5Dget_space(depth.getId());
+		hsize_t shape[3];
+		H5Sget_simple_extent_dims(dspace, shape, NULL);
+
+		// Get the height and width of the images
+		int height = shape[1];
+		int width = shape[2];
+
+		// Data space for specifing the image to be loaded
+		DataSpace depth_space = depth.getSpace();
+		DataSpace preds_space = preds.getSpace();
+
+		// The shape of the data to get, getting one image
+		hsize_t get_shape[3];
+		get_shape[0] = 1;
+		get_shape[1] = height;
+		get_shape[2] = width;
+
+		// The offset, start at the selected image
+		hsize_t image_at[3];
+		image_at[0] = image_index;
+		image_at[1] = 0;
+		image_at[2] = 0;
+
+		// Load the depth image
+		float depth_image[1][height][width];
+		depth_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
+		depth.read(depth_image, H5T_NATIVE_FLOAT, DataSpace::ALL, depth_space);
+
+		// Load the predictions
+		float label_image[1][height][width];
+		preds_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
+		preds.read(label_image, H5T_NATIVE_INT, DataSpace::ALL, preds_space);
+
 		// Temporary point to hold values
-		pcl::PointXYZRGB temp;
+		pcl::PointXYZRGB temp_point;
 
-		// Go through each point in the file
+		// Holds the XYZ
+		double temp_x, temp_y, temp_z;
 
+		// Holds the RGB
+		int temp_r, temp_g, temp_b;
+
+		// Holds the label for the point
+		int label;
+
+		// Go through each point in the file at the specified index
+		for (int h_index = 0; h_index < height; h_index++)
+		{
+			for (int w_index = 0; w_index < width; w_index++)
+			{
+				// Get the label at this point
+				label = label_image[0][h_index][w_index];
+
+				// Ignore non person points
+				if (label != 0)
+				{
+					// Get the RGB of this point
+					label_to_pix(label, temp_r, temp_g, temp_b, true);
+
+					// Get the depth at this point
+					temp_z = depth_image[0][h_index][w_index];
+
+					// Get the XYZ of the point
+					get_world_XYZ(temp_z, h_index, w_index, temp_x, temp_y);
+
+					// Set the values in the temp point
+					temp_point.x = temp_x;
+					temp_point.y = temp_y;
+					temp_point.z = temp_z;
+					temp_point.r = temp_r;
+					temp_point.g = temp_g;
+					temp_point.b = temp_b;
+
+					// Add the temp point to the cloud that corresponds to this label
+					part_clouds[label]->points.push_back(temp_point);
+				}
+			}
+		}
 	}
 
 	// Removes bad points from the cloud that are considered wrong
