@@ -284,11 +284,8 @@ class person_cloud
 		// Initialize the clouds
 		for (int i = 0; i < num_classes; i++)
 		{
-			// Blank point cloud
-			pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-			// Add to map
-			part_clouds[i] = temp;
+			// Add a new blank cloud to the map
+			part_clouds[i] =  boost::make_shared<pcl::PointCloud<pcl::PointXYZRGB> >();
 		}
 
 	}
