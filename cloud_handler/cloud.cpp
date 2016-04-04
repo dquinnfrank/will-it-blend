@@ -30,7 +30,7 @@ using namespace H5;
 //};
 
 // Gives the RGB for the given label
-void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
+void label_to_pix(int& label, int& r, int& g, int& b, bool fix_lua = false)
 {
 	// LUA indexes from 1, fix by subtracting 1
 	if (fix_lua)
@@ -377,12 +377,14 @@ class person_cloud
 				// Get the label at this point
 				label = label_image[0][h_index][w_index];
 
+				// Get the RGB of this point and fix the label
+				label_to_pix(label, temp_r, temp_g, temp_b, true);
+
+				//cout << "\rAdding on point: " << h_index << " " << w_index << " Label at: " << label;
+
 				// Ignore non person points
 				if (label != 0)
 				{
-					// Get the RGB of this point
-					label_to_pix(label, temp_r, temp_g, temp_b, true);
-
 					// Get the depth at this point
 					temp_z = depth_image[0][h_index][w_index];
 
@@ -402,6 +404,7 @@ class person_cloud
 				}
 			}
 		}
+		//cout << endl;
 	}
 
 	// Removes bad points from the cloud that are considered wrong
@@ -413,21 +416,23 @@ class person_cloud
 		
 		
 	}
-/*
+
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
 		// Construct a combined cloud from all of the parts
-		pcl::PointCloud<pcl::PointXYZRGB> cloud;
-		cloud = *part_clouds[0];
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+		*cloud = *part_clouds[0];
 		for (int i = 1; i < num_classes; i++)
 		{
-			cloud += *part_clouds[i];
+			*cloud += *part_clouds[i];
 		}
+
+		cout << "Number of points in the cloud: " << cloud->points.size() << endl;
 
 		pcl::visualization::CloudViewer viewer("Cloud View");
 
-		viewer.showCloud(&cloud);
+		viewer.showCloud(cloud);
 
 		// Spin lock until window exit
 		while (!viewer.wasStopped())
@@ -435,7 +440,7 @@ class person_cloud
 
 		}
 	}
-*/
+
 };
 
 int main(int argc, char** argv)
@@ -460,8 +465,15 @@ int main(int argc, char** argv)
 	// Make the cloud handler
 	person_cloud the_cloud(set_file_name);
 
+	cout << "Class initialized" << endl;
+
 	// Make the cloud
 	the_cloud.make_cloud(to_visualize_index);
+
+	cout << "Cloud constructed" << endl;
+
+	// Show the cloud
+	the_cloud.show_cloud();
 
 	return 0;
 }
