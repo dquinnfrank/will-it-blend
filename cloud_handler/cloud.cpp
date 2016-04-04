@@ -18,16 +18,16 @@ using namespace std;
 using namespace H5;
 
 // For getting floats
-struct pyf
-{
-	float val;
-};
+//struct pyf
+//{
+//	float val;
+//};
 
 // For getting ints
-struct pyi
-{
-	int val;
-};
+//struct pyi
+//{
+//	int val;
+//};
 
 // Gives the RGB for the given label
 void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
@@ -350,12 +350,12 @@ class person_cloud
 		// Load the depth image
 		float depth_image[1][height][width];
 		depth_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
-		depth.read(depth_image, H5T_NATIVE_FLOAT, DataSpace::ALL, depth_space);
+		depth.read(depth_image, PredType::NATIVE_FLOAT, DataSpace::ALL, depth_space);
 
 		// Load the predictions
 		float label_image[1][height][width];
 		preds_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
-		preds.read(label_image, H5T_NATIVE_INT, DataSpace::ALL, preds_space);
+		preds.read(label_image, PredType::NATIVE_FLOAT, DataSpace::ALL, preds_space);
 
 		// Temporary point to hold values
 		pcl::PointXYZRGB temp_point;
@@ -456,6 +456,12 @@ int main(int argc, char** argv)
 
 	cout << "Using file: " << set_file_name << endl;
 	cout << "At index: " << to_visualize_index << endl;
+
+	// Make the cloud handler
+	person_cloud the_cloud(set_file_name);
+
+	// Make the cloud
+	the_cloud.make_cloud(to_visualize_index);
 
 	return 0;
 }
