@@ -7,27 +7,19 @@
 #include <cstdlib>
 #include <map>
 
+#include <Eigen/Dense>
+
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/crop_box.h>
 #include <pcl/visualization/cloud_viewer.h>
 
 #include "H5Cpp.h"
 
 using namespace std;
 using namespace H5;
-
-// For getting floats
-//struct pyf
-//{
-//	float val;
-//};
-
-// For getting ints
-//struct pyi
-//{
-//	int val;
-//};
+using namespace Eigen;
 
 // Gives the RGB for the given label
 void label_to_pix(int& label, int& r, int& g, int& b, bool fix_lua = false)
@@ -409,12 +401,38 @@ class person_cloud
 
 	// Removes bad points from the cloud that are considered wrong
 	// Pixels at the threshold, outliers
-	void trim_cloud(double threshold=10.0)
+	// http://www.pcl-users.org/How-to-use-Crop-Box-td3888183.html
+	void trim_cloud(double threshold=9.5)
 	{
 
 		// Go through each point and remove threshold points
-		
-		
+		for(int cloud_index = 0; cloud_index < num_classes; cloud_index++)
+		{
+			// Holds the output of the filtering
+			//pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudOut( new pcl::PointCloud<pcl::PointXYZRGB> );
+			pcl::PointCloud<pcl::PointXYZRGB> cloudOut;
+
+			// The box to allow points within is defined by a cube with sides of length threshold
+			pcl::CropBox<pcl::PointXYZRGB> cropFilter;
+
+			// Set the min point
+			Vector4f min_point(-.5 * threshold, -.5 * threshold, 0.0, 0.0);
+
+			// Set the max point
+			Vector4f max_point(.5 * threshold, .5 * threshold, threshold, 0.0);
+
+			// Set the parameters for the crop box filter
+			cropFilter.setInputCloud( part_clouds[cloud_index] );
+                        cropFilter.setMin( min_point );
+                        cropFilter.setMax( max_point );
+
+			// Run the filter
+			cropFilter.filter(cloudOut);
+			
+			// Set the output as the new part cloud
+			part_clouds[cloud_index] = cloudOut.makeShared();
+		}
+
 	}
 
 	// Shows the cloud for visualization
@@ -471,6 +489,9 @@ int main(int argc, char** argv)
 	the_cloud.make_cloud(to_visualize_index);
 
 	cout << "Cloud constructed" << endl;
+
+	// Remove bad points
+	the_cloud.trim_cloud();
 
 	// Show the cloud
 	the_cloud.show_cloud();
