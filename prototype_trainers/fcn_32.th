@@ -142,6 +142,7 @@ class_weights[1] = .25 --non person
 torch.setdefaulttensortype("torch.FloatTensor")
 
 -- Set the gpu to run the whole system on
+print("ID type: " .. type(gpu_id))
 print("Using GPU: " .. gpu_id)
 cutorch.setDevice(gpu_id)
 
