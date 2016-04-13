@@ -13,7 +13,11 @@ set (LINK_LIBS ${LINK_LIBS} hdf5 hdf5_cpp)
 find_package(PCL 1.2 REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
+add_definitions(${PCL_DEFINITIONS}) 
+
+# EIGEN
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
 
 # Build
 set (main_file cloud)

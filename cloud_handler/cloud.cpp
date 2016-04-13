@@ -7,30 +7,22 @@
 #include <cstdlib>
 #include <map>
 
+#include <Eigen/Dense>
+
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/crop_box.h>
 #include <pcl/visualization/cloud_viewer.h>
 
 #include "H5Cpp.h"
 
 using namespace std;
 using namespace H5;
-
-// For getting floats
-//struct pyf
-//{
-//	float val;
-//};
-
-// For getting ints
-//struct pyi
-//{
-//	int val;
-//};
+using namespace Eigen;
 
 // Gives the RGB for the given label
-void label_to_pix(int label, int& r, int& g, int& b, bool fix_lua = false)
+void label_to_pix(int& label, int& r, int& g, int& b, bool fix_lua = false)
 {
 	// LUA indexes from 1, fix by subtracting 1
 	if (fix_lua)
@@ -284,11 +276,8 @@ class person_cloud
 		// Initialize the clouds
 		for (int i = 0; i < num_classes; i++)
 		{
-			// Blank point cloud
-			pcl::PointCloud<pcl::PointXYZRGB>::Ptr temp(new pcl::PointCloud<pcl::PointXYZRGB>);
-
-			// Add to map
-			part_clouds[i] = temp;
+			// Add a new blank cloud to the map
+			part_clouds[i] =  boost::make_shared<pcl::PointCloud<pcl::PointXYZRGB> >();
 		}
 
 	}
@@ -380,12 +369,14 @@ class person_cloud
 				// Get the label at this point
 				label = label_image[0][h_index][w_index];
 
+				// Get the RGB of this point and fix the label
+				label_to_pix(label, temp_r, temp_g, temp_b, true);
+
+				//cout << "\rAdding on point: " << h_index << " " << w_index << " Label at: " << label;
+
 				// Ignore non person points
 				if (label != 0)
 				{
-					// Get the RGB of this point
-					label_to_pix(label, temp_r, temp_g, temp_b, true);
-
 					// Get the depth at this point
 					temp_z = depth_image[0][h_index][w_index];
 
@@ -405,32 +396,61 @@ class person_cloud
 				}
 			}
 		}
+		//cout << endl;
 	}
 
 	// Removes bad points from the cloud that are considered wrong
 	// Pixels at the threshold, outliers
-	void trim_cloud(double threshold=10.0)
+	// http://www.pcl-users.org/How-to-use-Crop-Box-td3888183.html
+	void trim_cloud(double threshold=9.5)
 	{
 
 		// Go through each point and remove threshold points
-		
-		
+		for(int cloud_index = 0; cloud_index < num_classes; cloud_index++)
+		{
+			// Holds the output of the filtering
+			//pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudOut( new pcl::PointCloud<pcl::PointXYZRGB> );
+			pcl::PointCloud<pcl::PointXYZRGB> cloudOut;
+
+			// The box to allow points within is defined by a cube with sides of length threshold
+			pcl::CropBox<pcl::PointXYZRGB> cropFilter;
+
+			// Set the min point
+			Vector4f min_point(-.5 * threshold, -.5 * threshold, 0.0, 0.0);
+
+			// Set the max point
+			Vector4f max_point(.5 * threshold, .5 * threshold, threshold, 0.0);
+
+			// Set the parameters for the crop box filter
+			cropFilter.setInputCloud( part_clouds[cloud_index] );
+                        cropFilter.setMin( min_point );
+                        cropFilter.setMax( max_point );
+
+			// Run the filter
+			cropFilter.filter(cloudOut);
+			
+			// Set the output as the new part cloud
+			part_clouds[cloud_index] = cloudOut.makeShared();
+		}
+
 	}
-/*
+
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
 		// Construct a combined cloud from all of the parts
-		pcl::PointCloud<pcl::PointXYZRGB> cloud;
-		cloud = *part_clouds[0];
+		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
+		*cloud = *part_clouds[0];
 		for (int i = 1; i < num_classes; i++)
 		{
-			cloud += *part_clouds[i];
+			*cloud += *part_clouds[i];
 		}
+
+		cout << "Number of points in the cloud: " << cloud->points.size() << endl;
 
 		pcl::visualization::CloudViewer viewer("Cloud View");
 
-		viewer.showCloud(&cloud);
+		viewer.showCloud(cloud);
 
 		// Spin lock until window exit
 		while (!viewer.wasStopped())
@@ -438,7 +458,7 @@ class person_cloud
 
 		}
 	}
-*/
+
 };
 
 int main(int argc, char** argv)
@@ -463,8 +483,18 @@ int main(int argc, char** argv)
 	// Make the cloud handler
 	person_cloud the_cloud(set_file_name);
 
+	cout << "Class initialized" << endl;
+
 	// Make the cloud
 	the_cloud.make_cloud(to_visualize_index);
+
+	cout << "Cloud constructed" << endl;
+
+	// Remove bad points
+	the_cloud.trim_cloud();
+
+	// Show the cloud
+	the_cloud.show_cloud();
 
 	return 0;
 }
