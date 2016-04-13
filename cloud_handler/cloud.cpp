@@ -22,6 +22,7 @@ using namespace H5;
 using namespace Eigen;
 
 // Gives the RGB for the given label
+// Changes label if fix_lua is set
 void label_to_pix(int& label, int& r, int& g, int& b, bool fix_lua = false)
 {
 	// LUA indexes from 1, fix by subtracting 1
@@ -132,6 +133,89 @@ void label_to_pix(int& label, int& r, int& g, int& b, bool fix_lua = false)
 		r = 50;
 		g = 0;
 		b = 50;
+	}
+}
+
+// Gives the name of the label
+// index should already be fixed from lua
+void label_to_name(int& label, string& name)
+{
+	// Non person
+	if (label == 0)
+	{
+		name = "Non person";
+	}
+
+	// Head L
+	else if (label == 1)
+	{
+		name = "Head L";
+	}
+
+	// Head R
+	else if (label == 2)
+	{
+		name = "Head R";
+	}
+
+	// Torso L
+	else if (label == 3)
+	{
+		name = "Torso L";
+	}
+
+	// Torso R
+	else if (label == 4)
+	{
+		name = "Torso R";
+	}
+
+	// Upper Arm L
+	else if (label == 5)
+	{
+		name = "Upper Arm L";
+	}
+
+	// Upper Arm R
+	else if (label == 6)
+	{
+		name = "Upper Arm R";
+	}
+
+	// Lower Arm L
+	else if (label == 7)
+	{
+		name = "Lower Arm L";
+	}
+
+	// Lower Arm R
+	else if (label == 8)
+	{
+		name = "Lower Arm R";
+	}
+
+	// Upper Leg L
+	else if (label == 9)
+	{
+		name = "Upper Leg L";
+	}
+
+	// Upper Leg R
+	else if (label == 10)
+	{
+		name = "Upper Leg R";
+	}
+
+	// Lower Leg L
+	else if (label == 11)
+	{
+		name = "Lower Leg L";
+	}
+
+	// Lower Leg R
+	else if (label == 12)
+	{
+		name = "Lower Leg R";
 	}
 }
 
@@ -459,6 +543,9 @@ class person_cloud
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
+		//pcl::visualization::CloudViewer viewer("Cloud View");
+		pcl::visualization::PCLVisualizer viewer("Pose View");
+
 		// Construct a combined cloud from all of the parts
 		pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 		*cloud = *part_clouds[0];
@@ -467,17 +554,42 @@ class person_cloud
 			*cloud += *part_clouds[i];
 		}
 
-		cout << "Number of points in the cloud: " << cloud->points.size() << endl;
+		// Add markers for each part center
+		Vector4f temp_location;
+		pcl::PointXYZ temp_point;
+		int r, g, b;
+		string name;
+		for (int part_index = 1; part_index < num_classes; part_index++)
+		{
+			// Get the position of the point
+			temp_location = part_centers[part_index];
 
-		pcl::visualization::CloudViewer viewer("Cloud View");
+			// Set the XYZ point
+			temp_point.x = temp_location[0];
+			temp_point.y = temp_location[1];
+			temp_point.z = temp_location[2];
 
-		viewer.showCloud(cloud);
+			// Get the RGB for this point
+			label_to_pix(part_index, r, g, b);
+
+			// Get the name of this part
+			label_to_name(part_index, name);
+
+			// Make a sphere to mark this point
+			viewer.addSphere(temp_point, .01, r, g, b, name);
+		}
+
+		//cout << "Number of points in the cloud: " << cloud->points.size() << endl;
+
+		//viewer.showCloud(cloud);
+		viewer.addPointCloud(cloud);
 
 		// Spin lock until window exit
-		while (!viewer.wasStopped())
-		{
+		//while (!viewer.wasStopped())
+		//{
 
-		}
+		//}
+		viewer.spin();
 	}
 
 };
@@ -513,6 +625,13 @@ int main(int argc, char** argv)
 
 	// Remove bad points
 	the_cloud.trim_cloud();
+
+	cout << "Cloud trimmed" << endl;
+
+	// Get the centers of the parts
+	the_cloud.get_centers();
+
+	cout << "Got part centers" << endl;
 
 	// Show the cloud
 	the_cloud.show_cloud();
