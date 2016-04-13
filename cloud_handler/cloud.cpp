@@ -259,6 +259,12 @@ class person_cloud
 	// Keys are the labels
 	map<int, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> part_clouds;
 
+	// Holds the centers for each body part
+	map<int, Vector4f> part_centers;
+
+	// Marks which centers are valid
+	map<int, bool> part_valid;
+
 	// The name of the file to load from
 	string set_file_name;
 
@@ -433,6 +439,21 @@ class person_cloud
 			part_clouds[cloud_index] = cloudOut.makeShared();
 		}
 
+	}
+
+	// Gets the centers of the point clouds
+	// TODO: make this throw out and mark uncertain centers
+	void get_centers()
+	{
+		// Go through each body part
+		for (int part_index = 1; part_index < num_classes; part_index++)
+		{
+			// Check for valid cloud
+			// TODO: make this
+
+			// Get the center of the part
+			compute3DCentroid(*part_clouds[part_index], part_centers[part_index]);
+		}
 	}
 
 	// Shows the cloud for visualization
