@@ -106,6 +106,8 @@ class Random_forest:
 			# Show the start in readable format
 			print "Start time: ", time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.localtime())
 
+			sys.stdout.flush()
+
 		# Open the data
 		with h5py.File(file_name, 'r') as h5_file:
 
@@ -138,7 +140,7 @@ class Random_forest:
 				if verbose:
 
 					print "Training on batch: ", start_index, " to ", target_index, " "*10,
-					#sys.stdout.flush()
+					sys.stdout.flush()
 
 				# Train the forest
 				self.train_batch(data_batch, label_batch)
@@ -158,7 +160,8 @@ class Random_forest:
 					# The temp save name is based off of the save name and includes the index of the last item trained on
 					name, extension = os.path.splitext(save_name)
 
-					temp_save_name = name + "_temp_" + str(target_index) + extension
+					#temp_save_name = name + "_temp_" + str(target_index) + extension
+					temp_save_name = name + "_temp_" + extension
 
 					self.save_model(temp_save_name)
 
@@ -280,8 +283,16 @@ class Random_forest:
 			data_batch = data_set[start_index : end_index]
 			label_batch = label_set[start_index : end_index]
 
+			if verbose:
+
+				print "Start testing"
+
 			# Get predictions from the forest
 			predictions = self.predict(data_batch)
+
+			if verbose:
+
+				print "Testing complete"
 
 			# Get the score
 			score = accuracy_score(label_batch, predictions)
@@ -297,6 +308,8 @@ class Random_forest:
 			print "Confusion matrix:"
 			print confusion
 
+			sys.stdout.flush()
+
 		return score, confusion
 
 	# Predicts the pixel labelings for a batch of images
@@ -309,7 +322,8 @@ class Random_forest:
 	def batch_image_predict(self, source_dir, destination_dir, verbose=False):
 
 		# TEMP set features to be loaded
-		feature_list = pickle.load(open("/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/feature_set_01/_feature_list.p"))
+		#feature_list = pickle.load(open("/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/feature_set_01/_feature_list.p"))
+		feature_list = pickle.load(open("feature_list.p"))
 
 		# Make the destination directory
 		pp.enforce_path(destination_dir)
@@ -353,7 +367,7 @@ if __name__ == "__main__":
 	parser.add_argument("-d", "--data-source", dest="data_source", help="The name, including path and extension, of the data (must be an h5 file). Will be used for training and testing")
 
 	# Train flag is optional, if it is not sent, no training will be done
-	parser.add_argument("-r", "--train", dest="train_flag", help="Sets if training will occur. Defaults to false")
+	parser.add_argument("-r", "--train", action="store_true", default=False, dest="train_flag", help="Sets if training will occur. Defaults to false")
 
 	# Test split is optional, specifies the amount of data to be used for training
 	parser.add_argument("-t", "--test-split", type=float, dest="test_split", help="The percent of data to be used for training. Float between 0 - 1. Ex: .7 means 70%% will be used for training and the remainder for testing")
@@ -373,8 +387,14 @@ if __name__ == "__main__":
 	else:
 		data_h5 = None
 
+	# Training flag
+	train_flag = args.train_flag
+
 	# Test split
-	test_split = args.test_split
+	if args.test_split is not None:
+		test_split = args.test_split
+	else:
+		test_split = None
 
 	# Save name
 	if args.save_name:
@@ -444,13 +464,20 @@ if __name__ == "__main__":
 		else:
 
 			end_index = data_set_size
+			test_split = 1
+
+	# Set default
+	#if test_split is None:
+		#test_split = 
 
 	# Show the configuration
 	print "\nConfiguration"
 	if load_name:
-		print "Loading from: ", load_name
+		print "Loading model from: ", load_name
 	if data_h5:
-		print "Training data from: ", data_h5
+		print "Data from: ", data_h5, " total items: ", data_set_size
+	if train_flag:
+		print "Training will be done"
 	if test_split is not None:
 		print "Testing split: ", test_split, " at: ", end_index
 	if save_name:
@@ -464,7 +491,7 @@ if __name__ == "__main__":
 	pixel_classifier = Random_forest(load_name=load_name, verbose = 1)
 
 	# Train the forest if data source is sent and there is data to train on
-	if data_h5 is not None and end_index > 0:
+	if data_h5 is not None and end_index > 0 and train_flag:
 
 		pixel_classifier.train(data_h5, save_name=save_name, end_index = end_index, verbose=True)
 

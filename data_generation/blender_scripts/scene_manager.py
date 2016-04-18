@@ -416,17 +416,35 @@ class Human:
 				self.debug_print("Pose valid")
 
 	# Adds rotation to the entire person
-	# lock_plane will make sure that the person is always facing the camera
-	def random_rotation(self, lock_plane=False):
+	# the ranges will use the restrictions sent as (min, max)
+	# lock_plane will make sure that the person is always upright facing the camera, overrides other options
+	def random_rotation(self, lock_plane=False, x_range=None, y_range=None, z_range=None):
+
+		if lock_plane:
+
+			x_range = (0,0)
+			z_range = (0,0)
+
+		# Any ranges left as None should have no restriction
+		for r in [x_range, y_range, z_range]:
+
+			if r is None:
+
+				r = (0,360)
 
 		# Generate a random rotation
-		rand_x = None
-		rand_y = None
-		rand_z = None
-		if not lock_plane:
-			rand_x = random.randrange(0, 360)
-			rand_z = random.randrange(0, 360)
-		rand_y = random.randrange(0, 360)
+		if x_range == (0,0):
+			rand_x = 0
+		else:
+			rand_x = random.randrange(*x_range)
+		if y_range == (0,0):
+			rand_y = 0
+		else:
+			rand_y = random.randrange(*y_range)
+		if z_range == (0,0):
+			rand_z = 0
+		else:
+			rand_z = random.randrange(*z_range)
 
 		random_rot = [rand_x, rand_y, rand_z]
 

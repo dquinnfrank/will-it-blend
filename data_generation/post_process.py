@@ -1203,6 +1203,11 @@ class Image_processing:
 		else:
 			index = int(min([ f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir,f))]).strip(".exr"))
 
+		# If feature list has been as a string, load it as a pickle
+		if isinstance(feature_list, basestring):
+
+			feature_list = pickle.load(open(feature_list, 'rb'))
+
 		if verbose:
 			print "Items in source directory: ", len(get_names(source_dir))
 
