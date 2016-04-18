@@ -483,6 +483,7 @@ class person_cloud
 
 					// Add the temp point to the cloud that corresponds to this label
 					part_clouds[label]->points.push_back(temp_point);
+
 				}
 			}
 		}
@@ -583,6 +584,12 @@ class person_cloud
 
 		//viewer.showCloud(cloud);
 		viewer.addPointCloud(cloud);
+
+		// Set the camera to be where it is in blender
+		// sort out terrible documentation to figure out how, good luck with that
+		// http://docs.pointclouds.org/trunk/classpcl_1_1visualization_1_1_p_c_l_visualizer.html#ab2039927ec8f5a9771202f269987ec72
+		// http://www.pcl-users.org/PCLVisualizer-viewer-camera-setting-td2968333.html
+		//viewer.setCameraPosition(0,0,0,0,1,0);
 
 		// Spin lock until window exit
 		//while (!viewer.wasStopped())
