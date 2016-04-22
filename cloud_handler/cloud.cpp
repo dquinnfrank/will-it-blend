@@ -14,6 +14,7 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/crop_box.h>
 #include <pcl/visualization/cloud_viewer.h>
+#include <pcl/common/pca.h>
 
 #include "H5Cpp.h"
 
@@ -346,6 +347,9 @@ class person_cloud
 	// Holds the centers for each body part
 	map<int, Vector4f> part_centers;
 
+	// Holds the vectors for each body part
+	map<int, Vector3f> part_vectors;
+
 	// Marks which centers are valid
 	map<int, bool> part_valid;
 
@@ -541,6 +545,30 @@ class person_cloud
 		}
 	}
 
+	// Gets vectors for each cloud
+	// uses PCA
+	void get_vectors()
+	{
+		// Holds all of the eigen vectors temporarily
+		Matrix3f temp_eigen_vectors;
+
+		// Runs PCA
+		pcl::PCA<pcl::PointXYZRGB> pca;
+
+		// Go through each body part
+		for (int part_index = 1; part_index < num_classes; part_index++)
+		{
+			// Set the cloud input
+			pca.setInputCloud(part_clouds[part_index]);
+
+			// Get the eigen vectors
+			temp_eigen_vectors = pca.getEigenVectors();
+
+			// Save the largest
+			part_vectors[part_index] = temp_eigen_vectors.col(0);
+		}
+	}
+
 	// Shows the cloud for visualization
 	void show_cloud()
 	{
@@ -558,6 +586,8 @@ class person_cloud
 		// Add markers for each part center
 		Vector4f temp_location;
 		pcl::PointXYZ temp_point;
+		pcl::PointXYZ temp_target;
+		Vector3f temp_offset;
 		int r, g, b;
 		string name;
 		for (int part_index = 1; part_index < num_classes; part_index++)
@@ -577,7 +607,16 @@ class person_cloud
 			label_to_name(part_index, name);
 
 			// Make a sphere to mark this point
-			viewer.addSphere(temp_point, .01, r, g, b, name);
+			viewer.addSphere(temp_point, .01, r, g, b, name + "_center");
+
+			// Set the target for the other end of the vector
+			temp_offset = part_vectors[part_index];
+			temp_target.x = temp_point.x + temp_offset[0];
+			temp_target.y = temp_point.y + temp_offset[1];
+			temp_target.z = temp_point.z + temp_offset[2];
+
+			// Make a line to show the vector of this point
+			viewer.addLine(temp_point, temp_target, r, g, b, name + "_vector");
 		}
 
 		//cout << "Number of points in the cloud: " << cloud->points.size() << endl;
@@ -639,6 +678,11 @@ int main(int argc, char** argv)
 	the_cloud.get_centers();
 
 	cout << "Got part centers" << endl;
+
+	// Get the vectors of the parts
+	the_cloud.get_vectors();
+
+	cout << "Got part vectors" << endl;
 
 	// Show the cloud
 	the_cloud.show_cloud();
