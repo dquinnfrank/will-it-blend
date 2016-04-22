@@ -12,16 +12,16 @@ require 'StackShift'
 use_cuda = False
 
 -- The name of the model to load
-load_name = '/home/master/will-it-blend/prototype_trainers/temp.dat'
+--load_name = '/home/master/will-it-blend/prototype_trainers/temp.dat'
 
 -- The name of the test set
 --load_set_name = '/media/6a2ce75c-12d0-4cf5-beaa-875c0cd8e5d8/Easy_set_01_test.hdf5'
-load_set_name = '/home/master/will-it-blend/generated_data/Easy_set_01_test.hdf5'
+--load_set_name = '/home/master/will-it-blend/generated_data/Easy_set_01_test.hdf5'
 
 -- Save name to place images
 -- Location must already exist
 --save_name = '/home/master/will-it-blend/results/easy_set_vis.hdf5'
-save_name = '/home/master/will-it-blend/results/easy_set_full_vis.hdf5'
+--save_name = '/home/master/will-it-blend/results/easy_set_full_vis.hdf5'
 
 -- Implementing: https://gist.github.com/shelhamer/80667189b218ad570e82#file-readme-md
 
@@ -119,6 +119,11 @@ function save_image_examples(ex_stop, ex_start)
 	hdf5_file:close()
 
 end
+
+-- Get the command line arguments
+load_name = arg[1]
+load_set_name = arg[2]
+save_name = arg[3]
 
 -- Load the model
 model = torch.load(load_name)
