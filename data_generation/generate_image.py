@@ -73,7 +73,11 @@ person = Human(path, "neutral_person", debug_flag)
 print("Person created")
 
 # Create the clutter object class
-clutter = Clutter(debug_flag=debug_flag)
+if data_set_type == 2:
+	clutter = Clutter(debug_flag=debug_flag)
+
+if data_set_type == 3:
+	clutter = Clutter(object_range=(3,5),debug_flag=debug_flag)
 
 # Generate the specified number of images
 for image_index in range(offset, offset + number_of_images):
@@ -98,6 +102,16 @@ for image_index in range(offset, offset + number_of_images):
 		person.random_rotation()
 
 		# Add clutter objects
+		clutter.add_clutter()
+
+	# For the hybrid set, add some occulsion, but not much
+	# Adds a slight amount of rotation to the person, but the person should still face the sensor
+	if data_set_type == 3:
+
+		# Create restricted rotation
+		person.random_rotation(lock_plane=True, y_range=(-15, 15))
+
+		# Add some clutter objects
 		clutter.add_clutter()
 
 	# Save the key vertices
