@@ -29,7 +29,12 @@ class segment_frame:
 
 	# Set the type of sensor to use
 	# kinect : a microsoft 360 kinect
-	def set_sensor(sensor_type, threshold = np.iinfo(np.float32).max):
+	def set_sensor(sensor_type, threshold = None):
+
+		# None threshold, use max value
+		if threshold is None:
+
+			threshold = np.iinfo(np.float32).max
 
 		# Uses microsoft kinect for 360
 		if sensor_type == "kinect":
