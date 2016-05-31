@@ -31,7 +31,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 #INCLUDE_DIRECTORIES("..")
 
 # Flags, C++ and include numpy
-SET(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-I/usr/lib/python2.7/dist-packages/numpy/core/include")
+SET(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-I/usr/lib/python2.7/dist-packages/numpy/core/include -std=c++11 -O1")
 
 # CMAKE_SWIG_OUTDIR isn't working, fix it here
 #SET(CMAKE_SWIG_FLAGS "-outdir ${PROJECT_SOURCE_DIR}/bin")
@@ -52,7 +52,7 @@ add_definitions(${PCL_DEFINITIONS})
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
- # Use c++ compilier
+# Use c++ compilier
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/${main_file}.i PROPERTIES CPLUSPLUS ON)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/include/${main_file}.i PROPERTIES SWIG_FLAGS "-includeall") # This breaks iostream for some reason
 
@@ -62,7 +62,7 @@ add_executable (${out_name} ${PROJECT_SOURCE_DIR}/${main_file}.cpp)
 target_link_libraries (${out_name} ${LINK_LIBS} ${PCL_LIBRARIES})
 
 # Build SWIG bindings
-SWIG_ADD_MODULE(${out_name} python ${PROJECT_SOURCE_DIR}/${main_file}.i ${PROJECT_SOURCE_DIR}/${main_file}.cpp)
+#SWIG_ADD_MODULE(${out_name} python ${PROJECT_SOURCE_DIR}/${main_file}.i ${PROJECT_SOURCE_DIR}/${main_file}.cpp)
 
 # No idea what this does
-SWIG_LINK_LIBRARIES(${out_name} ${PYTHON_LIBRARIES})
+#SWIG_LINK_LIBRARIES(${out_name} ${PYTHON_LIBRARIES})

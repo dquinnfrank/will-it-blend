@@ -20,6 +20,7 @@
 
 using namespace std;
 
+
 //using namespace H5;
 //using namespace Eigen;
 
@@ -52,7 +53,6 @@ class person_cloud
 
 	// Creates the cloud from an hdf5 file
 	// Needs the index of the image to load
-	// MAJOR BUG: CAN ONLY LOAD IMAGE 0
 	void make_cloud(string file_name, int load_index);
 
 	// Removes bad points from the cloud that are considered wrong
@@ -95,4 +95,5 @@ class person_cloud
 
 	// Tracks the frame number
 	int frame_number = 0;
+	//int frame_number;
 };

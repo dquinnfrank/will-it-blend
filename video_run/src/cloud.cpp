@@ -312,6 +312,7 @@ void get_world_XYZ(double depth, int h_index, int w_index, double& X, double& Y)
 // Constructor
 person_cloud::person_cloud(int class_max, int im_height, int im_width)
 {
+	//frame_number = 0;
 
 	// Basic size constraints
 	num_classes = class_max;
@@ -373,14 +374,14 @@ void person_cloud::make_cloud(string file_name, int load_index)
 	image_at[2] = 0;
 
 	// Load the depth image
-	float depth_image[1][height][width];
+	float depth_image[height][width];
 	depth_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
-	depth.read(depth_image, H5::PredType::IEEE_F32LE, H5::DataSpace::ALL, depth_space);
+	depth.read(depth_image, H5::PredType::NATIVE_FLOAT, H5::DataSpace::ALL, depth_space);
 
 	// Load the predictions
-	float label_image[1][height][width];
+	int label_image[height][width];
 	preds_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
-	preds.read(label_image, H5::PredType::IEEE_F32LE, H5::DataSpace::ALL, preds_space);
+	preds.read(label_image, H5::PredType::NATIVE_FLOAT, H5::DataSpace::ALL, preds_space);
 
 	// Flatten the images
 	// TODO: Can this be done directly in hdf5 loading?
@@ -391,8 +392,8 @@ void person_cloud::make_cloud(string file_name, int load_index)
 	{
 		for (int w = 0; w < width; w++)
 		{
-			depth_flat[width*h + w] = depth_image[0][h][w];
-			label_flat[width*h + w] = label_image[0][h][w];
+			depth_flat[width*h + w] = depth_image[h][w];
+			label_flat[width*h + w] = label_image[h][w];
 		}
 	}
 
