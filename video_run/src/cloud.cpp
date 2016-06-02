@@ -312,7 +312,6 @@ void get_world_XYZ(double depth, int h_index, int w_index, double& X, double& Y)
 // Constructor
 person_cloud::person_cloud(int class_max, int im_height, int im_width)
 {
-	//frame_number = 0;
 
 	// Basic size constraints
 	num_classes = class_max;
@@ -326,6 +325,80 @@ person_cloud::person_cloud(int class_max, int im_height, int im_width)
 		part_clouds[i] =  boost::make_shared<pcl::PointCloud<pcl::PointXYZRGB> >();
 	}
 
+	// The viewer for showing the person
+	viewer = new pcl::visualization::PCLVisualizer("Person View");
+
+	// Start Python
+	Py_SetProgramName("cloud_handler");
+	Py_Initialize();
+
+	PyRun_SimpleString("import os; PD_ROOT = os.environ['PD_ROOT']; import sys; sys.path.append(os.path.join(PD_ROOT, 'video_run', 'src'))\n");
+
+	import_array();
+
+	// Import the frame module
+	pName = PyUnicode_FromString("make_frames");
+	pModule = PyImport_Import(pName);
+	Py_DECREF(pName);
+
+	// Create the frame class
+	//PyRun_SimpleString("frames = make_frames.segment_frames()");
+	pFrame_name = PyObject_GetAttrString(pModule, "segment_frame");
+	pFrame_class = PyObject_CallObject(pFrame_name, NULL);
+
+	// Import the functions for getting frames
+	//pFunc_get_depth = PyObject_GetAttrString(pModule, "frames.get_depth");
+	//pFunc_get_segmentation = PyObject_GetAttrString(pModule, "frames.get_segmentation");
+}
+
+// Destructor
+person_cloud::~person_cloud()
+{
+
+	delete viewer;
+
+	// Python cleanup
+
+	Py_DECREF(pFrame_name);
+
+	//Py_DECREF(pFrame_class);
+
+	Py_DECREF(pModule);
+
+	//Py_DECREF(np_arg);
+
+	//Py_DECREF(np_ret);
+
+	Py_Finalize();
+}
+
+// Makes the cloud from active kinect
+void person_cloud::make_cloud()
+{
+	// For the depth array
+	float* depth_flat;
+
+	// For the prediction array
+	unsigned char* label_flat;
+
+	// Update the depth
+	PyObject_CallMethod(pFrame_class, update_depth.c_str(), NULL);
+
+	// Get a depth frame
+	pReturn = PyObject_CallMethod(pFrame_class, get_depth.c_str(), NULL);
+	np_ret = reinterpret_cast<PyArrayObject*>(pReturn);
+	depth_flat = reinterpret_cast<float*>(PyArray_DATA(np_ret));
+
+	// Get the predictions
+	pReturn = PyObject_CallMethod(pFrame_class, get_segmentation.c_str(), NULL);
+	np_ret = reinterpret_cast<PyArrayObject*>(pReturn);
+	label_flat = reinterpret_cast<unsigned char*>(PyArray_DATA(np_ret));
+
+	// Use the other function
+	make_cloud(depth_flat, height, width, label_flat, height, width);
+
+	Py_DECREF(np_arg);
+	Py_DECREF(np_ret);
 }
 
 // Makes a cloud out of the given info
@@ -379,14 +452,14 @@ void person_cloud::make_cloud(string file_name, int load_index)
 	depth.read(depth_image, H5::PredType::NATIVE_FLOAT, H5::DataSpace::ALL, depth_space);
 
 	// Load the predictions
-	int label_image[height][width];
+	float label_image[height][width];
 	preds_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
 	preds.read(label_image, H5::PredType::NATIVE_FLOAT, H5::DataSpace::ALL, preds_space);
 
 	// Flatten the images
 	// TODO: Can this be done directly in hdf5 loading?
 	float depth_flat[height*width];
-	int label_flat[height*width];
+	unsigned char label_flat[height*width];
 
 	for (int h = 0; h < height; h++)
 	{
@@ -402,8 +475,9 @@ void person_cloud::make_cloud(string file_name, int load_index)
 }
 
 // Makes a person cloud given arrays with the depth and predictions
-void person_cloud::make_cloud(float* depth_data, int depth_h, int depth_w, int* prediction_data, int prediction_h, int prediction_w)
+void person_cloud::make_cloud(float* depth_data, int depth_h, int depth_w, unsigned char* prediction_data, int prediction_h, int prediction_w)
 {
+
 	// Temporary point to hold values
 	pcl::PointXYZRGB temp_point;
 
@@ -421,13 +495,14 @@ void person_cloud::make_cloud(float* depth_data, int depth_h, int depth_w, int* 
 	{
 		for (int w_index = 0; w_index < depth_w; w_index++)
 		{
+
 			// Get the label at this point
 			label = prediction_data[prediction_w*h_index + w_index];
 
 			// Get the RGB of this point and fix the label
 			label_to_pix(label, temp_r, temp_g, temp_b, true);
 
-			//cout << "\rAdding on point: " << h_index << " " << w_index << " Label at: " << label;
+			//cout << "\rAdding on point: " << h_index << " " << w_index << " Label at: " << label << endl;
 
 			// Ignore non person points
 			if (label != 0)
@@ -533,8 +608,11 @@ void person_cloud::get_vectors()
 // Shows the cloud for visualization
 void person_cloud::show_cloud()
 {
-	//pcl::visualization::CloudViewer viewer("Cloud View");
-	pcl::visualization::PCLVisualizer viewer("Pose View");
+	//Get rid of the old stuff
+	viewer->removeAllPointClouds();
+	viewer->removeAllShapes();
+
+	//pcl::visualization::PCLVisualizer viewer("Pose View");
 
 	// Construct a combined cloud from all of the parts
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -568,7 +646,7 @@ void person_cloud::show_cloud()
 		label_to_name(part_index, name);
 
 		// Make a sphere to mark this point
-		viewer.addSphere(temp_point, .01, r, g, b, name + "_center");
+		viewer->addSphere(temp_point, .01, r, g, b, name + "_center");
 
 		// Set the target for the other end of the vector
 		temp_offset = part_vectors[part_index];
@@ -577,13 +655,13 @@ void person_cloud::show_cloud()
 		temp_target.z = temp_point.z + temp_offset[2];
 
 		// Make a line to show the vector of this point
-		viewer.addLine(temp_point, temp_target, r, g, b, name + "_vector");
+		viewer->addLine(temp_point, temp_target, r, g, b, name + "_vector");
 	}
 
 	//cout << "Number of points in the cloud: " << cloud->points.size() << endl;
 
 	//viewer.showCloud(cloud);
-	viewer.addPointCloud(cloud);
+	viewer->addPointCloud(cloud);
 
 	// Set the camera to be where it is in blender
 	// sort out terrible documentation to figure out how, good luck with that
@@ -596,11 +674,12 @@ void person_cloud::show_cloud()
 	//{
 
 	//}
-	viewer.spin();
+	viewer->spin();
 }
 
 int main(int argc, char** argv)
 {
+cout << argv[0] << endl;
 	// Print usage if not enough args
 	if (argc < 3)
 	{

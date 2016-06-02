@@ -16,6 +16,10 @@
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/common/pca.h>
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include "Python.h"
+#include "numpy/arrayobject.h"
+
 #include "H5Cpp.h"
 
 using namespace std;
@@ -47,13 +51,19 @@ class person_cloud
 	// Constructor needs to know the basic dimensions of images and class predictions
 	person_cloud(int class_max = 13, int im_height = 480, int im_width = 640);
 
+	// Destructor
+	~person_cloud();
+
 	// Creates the cloud from float arrays of depth and int arrays of predictions
 	// Prediction indices are redundant, but important to include for wrapping
-	void make_cloud(float* depth_data, int depth_h, int depth_w, int* prediction_data, int prediction_h, int prediction_w);
+	void make_cloud(float* depth_data, int depth_h, int depth_w, unsigned char* prediction_data, int prediction_h, int prediction_w);
 
 	// Creates the cloud from an hdf5 file
 	// Needs the index of the image to load
 	void make_cloud(string file_name, int load_index);
+
+	// Creates the cloud from active kinect
+	void make_cloud();
 
 	// Removes bad points from the cloud that are considered wrong
 	// Pixels at the threshold, outliers
@@ -95,5 +105,18 @@ class person_cloud
 
 	// Tracks the frame number
 	int frame_number = 0;
-	//int frame_number;
+
+	// The viewer object
+	//pcl::visualization::PCLVisualizer viewer("Pose View");
+	pcl::visualization::PCLVisualizer* viewer;
+
+	// Python boundary variables
+	PyObject *pName, *pArgs, *pReturn, *pModule, *pFrame_name, *pFrame_class;
+	PyArrayObject *np_ret, *np_arg;
+
+	// Names of the functions for updating, getting depth and predictions
+	string update_depth = "update_depth";
+	string get_depth = "update_depth";
+	string get_segmentation = "get_segmentation";
+
 };

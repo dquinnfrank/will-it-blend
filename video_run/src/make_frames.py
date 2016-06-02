@@ -85,10 +85,10 @@ class segment_frame:
 
 	def get_depth():
 
-		return self.current_depth
+		return self.current_depth.flatten()
 
 	# Predicts the segmentation of the current depth frame
 	def get_segmentation():
 
-		return self.get_prediction(self.current_depth)
+		return self.get_prediction(self.current_depth).astype(np.uint8).flatten()
 	
