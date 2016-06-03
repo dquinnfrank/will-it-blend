@@ -9,6 +9,7 @@ import sys
 from os import listdir
 from os.path import isfile, join
 import subprocess
+import platform
 
 # Set the path to the path config file
 path_filename = join("data_generation", "path.txt")
@@ -166,7 +167,31 @@ else:
 
 			# Leave the loop
 			break
-				
+		
+		# Runs the setup actions for ubuntu, installs all prerequistes
+		elif flag == "-u":
+			
+			# Install all apt-get things
+			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect")
+			
+			# Install all pip things
+			subprocess.call("sudo pip install future h5py")
+			
+			# Install torch
+			subprocess.call("git clone https://github.com/torch/distro.git ~/torch --recursive; cd ~/torch; bash install-deps; ./install.sh")
+			
+			# Update torch
+			subprocess.call("luarocks install nn cunn cutorch")
+			
+			# Get hdf5 for torch
+			subprocess.call("git clone git@github.com:deepmind/torch-hdf5.git ~/torch-hdf5.git; cd ~/torch-hdf5; luarocks make hdf5-0-0.rockspec LIBHDF5_LIBDIR='/usr/lib/x86_64-linux-gnu/'")
+			
+			# Get lutorpy
+			subprocess.call("git clone https://github.com/imodpasteur/lutorpy.git; cd lutorpy; sudo python setup.py install")
+			
+			# Set the path to this directory
+			subprocess.call("echo 'export PD_ROOT=`pwd`' >> ~/.bashrc; source ~/.bashrc")
+			
 		# Not known
 		else:
 
