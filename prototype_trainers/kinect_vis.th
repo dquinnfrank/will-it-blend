@@ -17,15 +17,16 @@ save_name = arg[2]
 use_cuda = true
 
 -- The name of the model to load
-load_name = '/home/master/safe/test_model.dat'
+--load_name = '/home/master/safe/test_model.dat'
+load_name = '../trained_models/hybrid_temp.dat'
 
 -- The name of the folder to load images from
 -- TODO: use this to automatically grab images
-load_set_name = '/media/master/will-it-blend/generated_data/kinect_hallway/'
+--load_set_name = '/media/master/will-it-blend/generated_data/kinect_hallway/_001_sci.hdf5'
 
 -- Save name to place images
 -- Location must already exist
---save_name = '/home/master/will-it-blend/results/hall_real_images.hdf5'
+--save_name = '/home/master/will-it-blend/results/hybrid_hall_real_images.hdf5'
 
 -- Network size configurations
 -- TODO: make these automatic

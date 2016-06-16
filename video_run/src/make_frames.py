@@ -29,7 +29,7 @@ class segment_frame:
 
 	# Set the type of sensor to use
 	# kinect : a microsoft 360 kinect
-	def set_sensor(sensor_type, threshold = None):
+	def set_sensor(self, sensor_type, threshold = None):
 
 		# None threshold, use max value
 		if threshold is None:
@@ -60,7 +60,7 @@ class segment_frame:
 
 	# Sets the type of predictor
 	# torch : torch based model
-	def set_predictor(predictor_type, model_name):
+	def set_predictor(self, predictor_type, model_name):
 
 		# Uses torch
 		if predictor_type == "torch":
@@ -79,16 +79,16 @@ class segment_frame:
 			raise ValueError("Model type not known: " + predictor_type)
 
 	# Updates the depth frame, needs to be called before the get methods
-	def update_depth():
+	def update_depth(self):
 
 		self.current_depth = self.get_frame(self.threshold)
 
-	def get_depth():
+	def get_depth(self):
 
 		return self.current_depth.flatten()
 
 	# Predicts the segmentation of the current depth frame
-	def get_segmentation():
+	def get_segmentation(self):
 
 		return self.get_prediction(self.current_depth).astype(np.uint8).flatten()
 	

@@ -432,12 +432,13 @@ class person_cloud
 		image_at[0] = image_index;
 		image_at[1] = 0;
 		image_at[2] = 0;
-
+cout << "1" << endl;
+cout << depth_space[0] << endl;
 		// Load the depth image
 		float depth_image[1][height][width];
 		depth_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
 		depth.read(depth_image, PredType::NATIVE_FLOAT, DataSpace::ALL, depth_space);
-
+cout << "2" << endl;
 		// Load the predictions
 		float label_image[1][height][width];
 		preds_space.selectHyperslab(H5S_SELECT_SET, get_shape, image_at);
