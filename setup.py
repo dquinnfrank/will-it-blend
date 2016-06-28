@@ -175,7 +175,7 @@ else:
 			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect libopenexr-dev", shell=True)
 			
 			# Install all pip things
-			subprocess.call("sudo pip install future h5py openexr", shell=True)
+			subprocess.call("sudo pip install future h5py openexr cython", shell=True)
 			
 			# Install torch
 			subprocess.call("git clone https://github.com/torch/distro.git ~/torch --recursive; cd ~/torch; bash install-deps; ./install.sh", shell=True)
