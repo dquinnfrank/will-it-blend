@@ -105,7 +105,7 @@ if len(sys.argv) < 2:
 	print ("\n-c : copy scripts to blender")
 	print ("This copies any files in blender_scripts to the modules folder in blender")
 	#print ("\n-e : Runs the OpenEXR setup script")
-	print ("\n-e : Shows information to install the OpenEXR bindings for python")
+	#print ("\n-e : Shows information to install the OpenEXR bindings for python")
 	print ("")
 
 # Get all of the arguments
@@ -142,13 +142,13 @@ else:
 			index += 1
 
 		# Runs the OpenEXR script
-		elif flag == "-e":
+		#elif flag == "-e":
 
 			# Install OpenEXR
-			install_OpenEXR()
+			#install_OpenEXR()
 
 			# Move index
-			index += 1
+			#index += 1
 
 		# Runs all setup actions
 		elif flag == "-a":
@@ -163,7 +163,7 @@ else:
 			copy_scripts()
 
 			# Install OpenEXR
-			install_OpenEXR()
+			#install_OpenEXR()
 
 			# Leave the loop
 			break
@@ -172,27 +172,32 @@ else:
 		elif flag == "-u":
 			
 			# Install all apt-get things
-			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect")
+			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect libopenexr-dev", shell=True)
 			
 			# Install all pip things
-			subprocess.call("sudo pip install future h5py")
+			subprocess.call("sudo pip install future h5py openexr", shell=True)
 			
 			# Install torch
-			subprocess.call("git clone https://github.com/torch/distro.git ~/torch --recursive; cd ~/torch; bash install-deps; ./install.sh")
+			subprocess.call("git clone https://github.com/torch/distro.git ~/torch --recursive; cd ~/torch; bash install-deps; ./install.sh", shell=True)
 			
 			# Update torch
-			subprocess.call("luarocks install nn cunn cutorch")
+			subprocess.call("luarocks install cutorch nn cunn", shell=True)
 			
 			# Get hdf5 for torch
-			subprocess.call("git clone git@github.com:deepmind/torch-hdf5.git ~/torch-hdf5.git; cd ~/torch-hdf5; luarocks make hdf5-0-0.rockspec LIBHDF5_LIBDIR='/usr/lib/x86_64-linux-gnu/'")
+			subprocess.call("git clone git@github.com:deepmind/torch-hdf5.git ~/torch-hdf5; cd ~/torch-hdf5; luarocks make hdf5-0-0.rockspec LIBHDF5_LIBDIR='/usr/lib/x86_64-linux-gnu/'", shell=True)
 			
 			# Get lutorpy
-			subprocess.call("git clone https://github.com/imodpasteur/lutorpy.git; cd lutorpy; sudo python setup.py install")
+			subprocess.call("git clone https://github.com/imodpasteur/lutorpy.git ~/lutorpy; cd ~/lutorpy; sudo python setup.py install", shell=True)
 			
 			# Set the path to this directory
-			subprocess.call("echo 'export PD_ROOT=`pwd`' >> ~/.bashrc; source ~/.bashrc")
+			subprocess.call("echo 'export PD_ROOT=`pwd`' >> ~/.bashrc; source ~/.bashrc", shell=True)
+
+			# Move index
+			index += 1
 			
 		# Not known
 		else:
 
 			print ("\nArgument: " + flag + " not known")
+
+			break
