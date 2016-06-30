@@ -87,7 +87,6 @@ for image_index in range(offset, offset + number_of_images):
 
 	# For the harder data set, add rotation to the person and a simple occulsion
 	if data_set_type == 1:
-		print ("data set 1")
 
 		# Create a random rotation
 		person.random_rotation()

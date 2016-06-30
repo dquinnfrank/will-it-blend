@@ -426,11 +426,18 @@ class Human:
 			z_range = (0,0)
 
 		# Any ranges left as None should have no restriction
-		for r in [x_range, y_range, z_range]:
+		#for r in [x_range, y_range, z_range]:
 
-			if r is None:
+			#if r is None:
 
-				r = (0,360)
+				#r = (0,360)
+
+		if x_range is None:
+			x_range = (0,360)
+		if y_range is None:
+			y_range = (0,360)
+		if z_range is None:
+			z_range = (0,360)
 
 		# Generate a random rotation
 		if x_range == (0,0):
@@ -625,19 +632,26 @@ class Clutter:
 
 		return (random.uniform(0.0,math.pi * 2),random.uniform(0.0,math.pi * 2),random.uniform(0.0,math.pi * 2))
 
-	# Adds clutter to the scene, removes previous clutter objects
-	# Will generate a random number of random objects from the total possible objects
-	def add_clutter(self):
-
-		# The number of different types of objects available
-		# TODO: use a list of possible functions?
-		total_object_types = 4
+	# Clears all current objects
+	def clear_objects(self):
 
 		# Make sure that no objects are selected
 		deselect_all()
 
 		# Get rid of all current clutter objects
 		self.remove_all_objects()
+
+	# Adds clutter to the scene, removes previous clutter objects, if reset is set
+	# Will generate a random number of random objects from the total possible objects
+	def add_clutter(self, reset = True):
+
+		# The number of different types of objects available
+		# TODO: use a list of possible functions?
+		total_object_types = 4
+
+		if reset:
+
+			self.clear_objects()
 
 		# Set the number of objects to create
 		num_to_create = random.randint(self.object_range[LOWER], self.object_range[UPPER])
@@ -670,20 +684,24 @@ class Clutter:
 
 				self.add_cone()
 
-	# Adds a sphere to the scene
-	def add_sphere(self):
+	# Adds a sphere to the scene, parameters set to None will be randomly set
+	def add_sphere(self, size=None, location=None):
 
 		# Deselect all other objects
 		deselect_all()
 
-		# The range of the sphere radius
-		radius_range = (.1, .25)
+		if size is None:
 
-		# Get a random size
-		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+			# The range of the sphere radius
+			radius_range = (.1, .25)
 
-		# Get a random location within the active area
-		location = self.random_location()
+			# Get a random size
+			size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+
+		if location is None:
+
+			# Get a random location within the active area
+			location = self.random_location()
 
 		# Create a sphere within the active area
 		bpy.ops.mesh.primitive_uv_sphere_add(size = size, location = location)
@@ -694,23 +712,29 @@ class Clutter:
 		# Add it to the responsibility list
 		self.current_objects.append(name)
 
-	# Adds a cube to the scene
-	def add_cube(self):
+	# Adds a cube to the scene, parameters set to None will be randomly set
+	def add_cube(self, size=None, location=None, rotation=None):
 
 		# Deselect all other objects
 		deselect_all()
 
-		# The range of the cube radius
-		radius_range = (.1, .25)
+		if size is None:
 
-		# Get a random size
-		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+			# The range of the cube radius
+			radius_range = (.1, .25)
 
-		# Get a random location within the active area
-		location = self.random_location()
+			# Get a random size
+			size = random.uniform(radius_range[LOWER], radius_range[UPPER])
 
-		# Get a random rotation
-		rotation = self.random_rotation()
+		if location is None:
+
+			# Get a random location within the active area
+			location = self.random_location()
+
+		if rotation is None:
+
+			# Get a random rotation
+			rotation = self.random_rotation()
 
 		# Create a sphere within the active area
 		bpy.ops.mesh.primitive_cube_add(radius = size, location = location, rotation = rotation)
@@ -721,23 +745,29 @@ class Clutter:
 		# Add it to the responsibility list
 		self.current_objects.append(name)
 
-	# Adds a plane (geometric) to the scene
-	def add_plane(self):
+	# Adds a plane (geometric) to the scene, parameters set to None will be randomly set
+	def add_plane(self, size=None, location=None, rotation=None):
 
 		# Deselect all other objects
 		deselect_all()
 
-		# The range of the plane radius
-		radius_range = (.1, .25)
+		if size is None:
 
-		# Get a random size
-		size = random.uniform(radius_range[LOWER], radius_range[UPPER])
+			# The range of the plane radius
+			radius_range = (.1, .25)
 
-		# Get a random location within the active area
-		location = self.random_location()
+			# Get a random size
+			size = random.uniform(radius_range[LOWER], radius_range[UPPER])
 
-		# Get a random rotation
-		rotation = self.random_rotation()
+		if location is None:
+
+			# Get a random location within the active area
+			location = self.random_location()
+
+		if rotation is None:
+
+			# Get a random rotation
+			rotation = self.random_rotation()
 
 		# Create a sphere within the active area
 		bpy.ops.mesh.primitive_plane_add(radius = size, location = location, rotation = rotation)
@@ -748,8 +778,8 @@ class Clutter:
 		# Add it to the responsibility list
 		self.current_objects.append(name)
 
-	# Adds a cone to the scene
-	def add_cone(self):
+	# Adds a cone to the scene, parameters set to None will be randomly set
+	def add_cone(self, radius1=None, radius2=None, depth=None, location=None, rotation=None):
 
 		# Deselect all other objects
 		deselect_all()
@@ -757,19 +787,27 @@ class Clutter:
 		# The potential radius of each end of the cone
 		radius_range = (0.01, .1)
 
+		# Get random dimensions for the radii set to None
+		if radius1 is None:
+			radius1 = random.uniform(radius_range[LOWER], radius_range[UPPER])
+		if radius2 is None:
+			radius2 = random.uniform(radius_range[LOWER], radius_range[UPPER])
+
 		# The potential length of the cone
-		length_range = (.2, 1)
+		if depth is None:
+			length_range = (.2, 1)
 
-		# Get random dimensions for the object
-		radius1 = random.uniform(radius_range[LOWER], radius_range[UPPER])
-		radius2 = random.uniform(radius_range[LOWER], radius_range[UPPER])
-		depth = random.uniform(length_range[LOWER], length_range[UPPER])
+			depth = random.uniform(length_range[LOWER], length_range[UPPER])
 
-		# Get a random location within the active area
-		location = self.random_location()
+		if location is None:
 
-		# Get a random rotation
-		rotation = self.random_rotation()
+			# Get a random location within the active area
+			location = self.random_location()
+
+		if rotation is None:
+
+			# Get a random rotation
+			rotation = self.random_rotation()
 
 		# Create the cone
 		bpy.ops.mesh.primitive_cone_add(radius1=radius1, radius2=radius2, depth=depth, location=location, rotation=rotation)

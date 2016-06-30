@@ -1,5 +1,5 @@
-SAVE_PATH /home/master/Programming/will-it-blend/generated_data/internal_spin_00/type_1_check
+SAVE_PATH /home/master/Programming/will-it-blend/generated_data/type_1_check
 GENERATE_NUMBER 10
-DEBUG_OUTPUT FALSE
+DEBUG_OUTPUT TRUE
 OFFSET 0
 TYPE 1

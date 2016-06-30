@@ -1,4 +1,4 @@
-SAVE_PATH /media/master/DAVID_SSD/occulsion_data/example_images/
+SAVE_PATH ../generated_data/example_images/
 GENERATE_NUMBER 10
 DEBUG_OUTPUT TRUE
 OFFSET 0
