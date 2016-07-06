@@ -172,7 +172,10 @@ else:
 		elif flag == "-u":
 			
 			# Install all apt-get things
-			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect libopenexr-dev", shell=True)
+			subprocess.call("sudo apt-get install build-essential cmake git libhdf5-serial-dev hdf5-tools python-pip python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose freenect python-freenect libopenexr-dev kolourpaint4", shell=True)
+			
+			# Fix bug
+			subprocess.call("sudo apt-get install --reinstall libsdl1.2debian")
 			
 			# Install all pip things
 			subprocess.call("sudo pip install future h5py openexr cython", shell=True)
