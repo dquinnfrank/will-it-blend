@@ -1505,27 +1505,28 @@ class Image_processing:
 		# Close the h5 file
 		h5_file.close()
 
-# Process all images from the source directory and place them into the target directory
-# Enforces target directory
+# Process all images from the source directory and place them into the target
 # Needs source and target directory names as commandline arguments
+# TODO: use argparse
 if __name__ == "__main__":
 
 	# Check correct number of arguments
 	# TODO: use argparse
 	if (len(sys.argv) < 2):
 		# Not enough arguments, print usage
-		print ("Usage: post_process.py source_dir target_dir [-s start_index -e end_index -c scale_factor -b batch_size]")
+		print ("Usage: post_process.py source_dir target_name [-s start_index -e end_index -c scale_factor -b batch_size]")
 		print("Indices are inclusive")
 		sys.exit(1)
 
 	# Get the command line arguments
 	source_dir = sys.argv[1]
-	target_dir = sys.argv[2]
+	target_name = sys.argv[2]
 
 	# Get optional arguments if present
 	arg_index = 3
 	start_index = None
 	end_index = None
+	batch_size = 1024
 	scale_factor = 1
 	while arg_index < len(sys.argv):
 
@@ -1561,6 +1562,9 @@ if __name__ == "__main__":
 
 			print "Flag: ", get_flag, ", not known"
 
-	# Process the images to pickles
+			arg_index += 2
+
+	# Process the images to hdf5
 	im_proc = Image_processing(scale_factor)
-	im_proc.process_to_pickle(source_dir, target_dir, start_index=start_index, end_index=end_index, batch_size=batch_size, verbose=True)
+	#im_proc.process_to_pickle(source_dir, target_dir, start_index=start_index, end_index=end_index, batch_size=batch_size, verbose=True)
+	im_proc.process_to_h5(source_dir=source_dir, target_name=target_name, start_index=start_index, end_index=end_index, batch_size=batch_size, threshold=10.0, verbose=True)
