@@ -10,7 +10,15 @@ This repository contains files necessary to train a system to detect partially o
 
 ##Setup
 
-Before any images can be generated, blender must be downloaded and configured by the user. There are also some additional steps to properly configure the image generation.
+Some actions muust be done manually by the user before installing.
+
+An ssh key must be associated with the git hub account. Follow the instructions here to generate a new key if needed and add it to the github account: https://help.github.com/articles/adding-a-new-ssh-key-to-your-github-account/#platform-linux
+
+CUDA must be installed. Follow the instructions here to do this: http://www.r-tutor.com/gpu-computing/cuda-installation/cuda7.5-ubuntu
+
+Installing CUDA can sometimes lead to various video driver related errors, so perform the always prudent step of backing up anything important.
+
+Before any images can be generated, Blender must be downloaded and configured by the user. There are also some additional steps to properly configure the image generation.
 
 This project uses Blender version 2.72, which can be downloaded from http://download.blender.org/release/Blender2.72/ . Select the correct version for the system being used. This is the only version that is compatible with the project right now. Thus using a package manager such as apt-get is not recommended.
 
